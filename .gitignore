@@ -1,0 +1,26 @@
+﻿node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+.netlify/
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+# Python backend
+backend/.env
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.neon
+
+# Local OjaFlow upgrade scripts
+OjaFlow-*-Upgrade.ps1

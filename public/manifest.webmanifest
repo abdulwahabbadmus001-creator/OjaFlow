@@ -1,0 +1,17 @@
+{
+  "name": "OjaFlow",
+  "short_name": "OjaFlow",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#0b6b45",
+  "description": "A trader-focused business command centre for sales, stock, expenses, debts, customers and practical business advice.",
+  "icons": [
+    {
+      "src": "/ojaflow.svg?v=4",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
