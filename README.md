@@ -23,9 +23,11 @@
 
 ## Experience OjaFlow
 
-> **Live application:** production deployment is currently in progress.  
-> Once the Netlify + Render + Neon deployment is completed, the production URL will be placed here as the main **Launch OjaFlow** link so reviewers and users can experience the app directly.
+### [Launch OjaFlow](https://ojaflow.netlify.app/)
 
+The production web application is now available on Netlify. Open the link above to experience the current OjaFlow MVP.
+
+**Live application:** https://ojaflow.netlify.app/  
 **Source repository:** https://github.com/abdulwahabbadmus001-creator/OjaFlow
 
 ---
