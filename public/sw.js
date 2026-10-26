@@ -1,5 +1,5 @@
-const CACHE = 'ojaflow-v2';
-const SHELL = ['/', '/manifest.webmanifest', '/ojaflow.svg?v=5'];
+const CACHE = 'ojaflow-v4';
+const SHELL = ['/', '/manifest.webmanifest', '/ojaflow.svg?v=7'];
 
 self.addEventListener('install', event => {
   self.skipWaiting();
