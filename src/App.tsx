@@ -87,14 +87,14 @@ if (checking) {
     <div className="splash">
       <BrandLogo />
       <small>
-        Preparing your business workspaceâ€¦
+        Preparing your business…
       </small>
     </div>
   );
 }
 
   if (!session) return <AuthPage onAuthenticated={activate} />;
-  if (!store.profile) return <div className="splash"><strong>{t(session.preferredLanguage, 'Loading your profileâ€¦')}</strong></div>;
+  if (!store.profile) return <div className="splash"><strong>{t(session.preferredLanguage, 'Loading your profile…')}</strong></div>;
 
   if (!store.business || !session.businessProfileCompleted) {
     return (
@@ -121,7 +121,7 @@ if (checking) {
     );
   }
 
-  if (!shell) return <div className="splash"><strong>{t(session.preferredLanguage, 'Preparing workspaceâ€¦')}</strong></div>;
+  if (!shell) return <div className="splash"><strong>{t(session.preferredLanguage, 'Preparing workspace…')}</strong></div>;
   const { profile, business } = shell;
 
   return (

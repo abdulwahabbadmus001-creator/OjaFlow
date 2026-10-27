@@ -41,7 +41,7 @@ async function request<T>(
     });
   } catch {
     throw new Error(
-      'OjaFlow could not reach the backend. Make sure the FastAPI server is running.'
+      'OjaFlow could not connect right now. Check your internet connection and try again.'
     );
   }
 

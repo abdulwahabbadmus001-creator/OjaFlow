@@ -264,7 +264,7 @@ export default function AuthPage({
               className="primary-btn full"
             >
               {busy
-                ? tr('Signing inâ€¦')
+                ? tr('Signing in…')
                 : tr('Log in')}
 
               <ArrowRight size={18} />
@@ -409,7 +409,7 @@ export default function AuthPage({
               className="primary-btn full"
             >
               {busy
-                ? tr('Creating accountâ€¦')
+                ? tr('Creating account…')
                 : tr('Create account')}
 
               <ArrowRight size={18} />
@@ -449,7 +449,7 @@ export default function AuthPage({
 
             <p className="muted">
               {tr(
-                'If you are still signed in on another device, open Settings â†’ Security & Login â†’ Change Password.'
+                'If you are still signed in on another device, open Settings → Security & Login → Change Password.'
               )}
             </p>
           </div>
