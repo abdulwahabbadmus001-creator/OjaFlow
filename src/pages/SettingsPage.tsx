@@ -492,7 +492,7 @@ function ChangePasswordScreen({ onBack }: { onBack: () => void }) {
           {show ? <EyeOff size={17} /> : <Eye size={17} />} {show ? tr('Hide passwords') : tr('Show passwords')}
         </button>
         {status && <div className="inline-status">{status}</div>}
-        <button className="primary-btn" disabled={busy}>{busy ? tr('Updatingâ€¦') : tr('Update password')}</button>
+        <button className="primary-btn" disabled={busy}>{busy ? tr('Updating…') : tr('Update password')}</button>
       </form>
     </SimpleScreen>
   );
