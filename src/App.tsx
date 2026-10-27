@@ -1,4 +1,4 @@
-import BrandLogo from './components/BrandLogo';
+﻿import BrandLogo from './components/BrandLogo';
 import { useEffect, useMemo, useState } from 'react';
 import type { AppSection, BusinessProfile, ThemePreference, UserProfile } from './types';
 import AuthPage from './pages/AuthPage';
@@ -87,14 +87,14 @@ if (checking) {
     <div className="splash">
       <BrandLogo />
       <small>
-        Preparing your business workspace…
+        Preparing your business workspaceâ€¦
       </small>
     </div>
   );
 }
 
   if (!session) return <AuthPage onAuthenticated={activate} />;
-  if (!store.profile) return <div className="splash"><strong>{t(session.preferredLanguage, 'Loading your profile…')}</strong></div>;
+  if (!store.profile) return <div className="splash"><strong>{t(session.preferredLanguage, 'Loading your profileâ€¦')}</strong></div>;
 
   if (!store.business || !session.businessProfileCompleted) {
     return (
@@ -121,7 +121,7 @@ if (checking) {
     );
   }
 
-  if (!shell) return <div className="splash"><strong>{t(session.preferredLanguage, 'Preparing workspace…')}</strong></div>;
+  if (!shell) return <div className="splash"><strong>{t(session.preferredLanguage, 'Preparing workspaceâ€¦')}</strong></div>;
   const { profile, business } = shell;
 
   return (

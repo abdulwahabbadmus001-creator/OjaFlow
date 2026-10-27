@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -264,7 +264,7 @@ export default function AuthPage({
               className="primary-btn full"
             >
               {busy
-                ? tr('Signing in…')
+                ? tr('Signing inâ€¦')
                 : tr('Log in')}
 
               <ArrowRight size={18} />
@@ -409,7 +409,7 @@ export default function AuthPage({
               className="primary-btn full"
             >
               {busy
-                ? tr('Creating account…')
+                ? tr('Creating accountâ€¦')
                 : tr('Create account')}
 
               <ArrowRight size={18} />
@@ -449,7 +449,7 @@ export default function AuthPage({
 
             <p className="muted">
               {tr(
-                'If you are still signed in on another device, open Settings → Security & Login → Change Password.'
+                'If you are still signed in on another device, open Settings â†’ Security & Login â†’ Change Password.'
               )}
             </p>
           </div>

@@ -1,0 +1,576 @@
+/* ==========================================================
+   OJAFLOW — OJACHAT CONVERSATION HISTORY
+   ========================================================== */
+
+.chat-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.chat-header-actions .icon-btn {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+
+    border-radius: 10px;
+}
+
+.chat-header-actions .icon-btn.active {
+    color: var(--of-gold,
+            #d4af37);
+
+    background:
+        rgba(212,
+            175,
+            55,
+            0.09);
+}
+
+/* ==========================================================
+   HISTORY LAYOUT
+   ========================================================== */
+
+.ojachat-history {
+    min-height: 0;
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+
+    background:
+        var(--of-surface-solid,
+            var(--panel));
+}
+
+.ojachat-history-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    padding:
+        14px 15px;
+
+    border-bottom:
+        1px solid var(--of-border,
+            var(--line));
+}
+
+.ojachat-history-head>div {
+    min-width: 0;
+
+    display: grid;
+
+    gap: 3px;
+}
+
+.ojachat-history-head strong {
+    color:
+        var(--of-ink,
+            var(--ink));
+
+    font-size:
+        0.86rem;
+}
+
+.ojachat-history-head small {
+    color:
+        var(--of-muted,
+            var(--muted));
+
+    font-size:
+        0.67rem;
+}
+
+/* ==========================================================
+   NEW CHAT BUTTON
+   ========================================================== */
+
+.ojachat-new-chat {
+    flex: 0 0 auto;
+
+    min-height: 34px;
+
+    display:
+        inline-flex;
+
+    align-items: center;
+
+    justify-content:
+        center;
+
+    gap: 6px;
+
+    padding:
+        0 10px;
+
+    border:
+        1px solid rgba(212,
+            175,
+            55,
+            0.24);
+
+    border-radius:
+        10px;
+
+    background:
+        rgba(212,
+            175,
+            55,
+            0.07);
+
+    color:
+        var(--of-gold,
+            #d4af37);
+
+    font-size:
+        0.7rem;
+
+    font-weight: 750;
+
+    cursor: pointer;
+}
+
+.ojachat-new-chat:hover:not( :disabled) {
+    border-color:
+        rgba(212,
+            175,
+            55,
+            0.44);
+
+    background:
+        rgba(212,
+            175,
+            55,
+            0.12);
+}
+
+/* ==========================================================
+   CONVERSATION LIST
+   ========================================================== */
+
+.ojachat-history-list {
+    min-height: 0;
+
+    flex: 1;
+
+    overflow-y: auto;
+
+    display: grid;
+
+    align-content: start;
+
+    gap: 7px;
+
+    padding:
+        10px;
+}
+
+.ojachat-history-item {
+    display: flex;
+
+    align-items: center;
+
+    min-width: 0;
+
+    overflow: hidden;
+
+    border:
+        1px solid var(--of-border,
+            var(--line));
+
+    border-radius:
+        12px;
+
+    background:
+        var(--of-surface-soft,
+            var(--panel-soft));
+
+    transition:
+        border-color 150ms ease,
+        background 150ms ease,
+        transform 150ms ease;
+}
+
+.ojachat-history-item:hover {
+    border-color:
+        rgba(212,
+            175,
+            55,
+            0.28);
+
+    background:
+        rgba(212,
+            175,
+            55,
+            0.045);
+}
+
+.ojachat-history-item.active {
+    border-color:
+        rgba(212,
+            175,
+            55,
+            0.42);
+
+    background:
+        rgba(212,
+            175,
+            55,
+            0.07);
+}
+
+.ojachat-history-open {
+    min-width: 0;
+
+    flex: 1;
+
+    display: grid;
+
+    gap: 5px;
+
+    padding:
+        11px 10px 11px 12px;
+
+    border: 0;
+
+    background:
+        transparent;
+
+    color:
+        inherit;
+
+    text-align:
+        left;
+
+    cursor: pointer;
+}
+
+.ojachat-history-title {
+    min-width: 0;
+
+    overflow:
+        hidden;
+
+    color:
+        var(--of-ink,
+            var(--ink));
+
+    font-size:
+        0.78rem;
+
+    font-weight: 720;
+
+    line-height: 1.35;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+}
+
+.ojachat-history-meta {
+    overflow:
+        hidden;
+
+    color:
+        var(--of-muted,
+            var(--muted));
+
+    font-size:
+        0.63rem;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+}
+
+/* ==========================================================
+   DELETE ONE CONVERSATION
+   ========================================================== */
+
+.ojachat-history-delete {
+    width: 34px;
+    height: 34px;
+
+    flex:
+        0 0 34px;
+
+    display: grid;
+
+    place-items:
+        center;
+
+    margin-right:
+        7px;
+
+    border: 0;
+
+    border-radius:
+        9px;
+
+    background:
+        transparent;
+
+    color:
+        var(--of-muted,
+            var(--muted));
+
+    cursor: pointer;
+
+    transition:
+        color 140ms ease,
+        background 140ms ease;
+}
+
+.ojachat-history-delete:hover {
+    color:
+        var(--danger,
+            #b42318);
+
+    background:
+        var(--danger-soft,
+            rgba(180,
+                35,
+                24,
+                0.08));
+}
+
+/* ==========================================================
+   EMPTY HISTORY
+   ========================================================== */
+
+.ojachat-history-empty {
+    flex: 1;
+
+    display: flex;
+
+    flex-direction:
+        column;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    padding:
+        30px 24px;
+
+    text-align:
+        center;
+}
+
+.ojachat-history-empty>svg {
+    margin-bottom:
+        12px;
+
+    color:
+        var(--of-gold,
+            #d4af37);
+
+    opacity:
+        0.85;
+}
+
+.ojachat-history-empty strong {
+    margin-bottom:
+        7px;
+
+    color:
+        var(--of-ink,
+            var(--ink));
+
+    font-size:
+        0.9rem;
+}
+
+.ojachat-history-empty p {
+    max-width:
+        300px;
+
+    margin:
+        0 0 17px;
+
+    color:
+        var(--of-muted,
+            var(--muted));
+
+    font-size:
+        0.72rem;
+
+    line-height:
+        1.55;
+}
+
+.ojachat-history-empty .primary-btn {
+    min-height:
+        38px;
+
+    padding:
+        0 12px;
+
+    font-size:
+        0.72rem;
+}
+
+/* ==========================================================
+   HISTORY FOOTER
+   ========================================================== */
+
+.ojachat-history-footer {
+    display: flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    gap: 10px;
+
+    padding:
+        10px 12px;
+
+    border-top:
+        1px solid var(--of-border,
+            var(--line));
+
+    background:
+        var(--of-surface-soft,
+            var(--panel-soft));
+}
+
+.ojachat-history-footer small {
+    max-width:
+        245px;
+
+    color:
+        var(--of-muted,
+            var(--muted));
+
+    font-size:
+        0.61rem;
+
+    line-height:
+        1.35;
+}
+
+.ojachat-history-footer button {
+    flex:
+        0 0 auto;
+
+    min-height:
+        30px;
+
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap: 5px;
+
+    padding:
+        0 8px;
+
+    border: 0;
+
+    border-radius:
+        8px;
+
+    background:
+        transparent;
+
+    color:
+        var(--danger,
+            #b42318);
+
+    font-size:
+        0.66rem;
+
+    font-weight:
+        700;
+
+    cursor:
+        pointer;
+}
+
+.ojachat-history-footer button:hover {
+    background:
+        var(--danger-soft,
+            rgba(180,
+                35,
+                24,
+                0.08));
+}
+
+/* ==========================================================
+   CONTINUING-CONVERSATION BANNER
+   ========================================================== */
+
+.chat-mode-banner strong {
+    min-width: 0;
+}
+
+.chat-mode-banner small {
+    min-width: 0;
+}
+
+/* ==========================================================
+   ACCESSIBILITY
+   ========================================================== */
+
+.ojachat-history-open:focus-visible,
+.ojachat-history-delete:focus-visible,
+.ojachat-new-chat:focus-visible,
+.ojachat-history-footer button:focus-visible {
+    outline:
+        2px solid var(--of-gold,
+            #d4af37);
+
+    outline-offset:
+        2px;
+}
+
+/* ==========================================================
+   MOBILE
+   ========================================================== */
+
+@media (max-width: 640px) {
+    .chat-header-actions {
+        gap: 1px;
+    }
+
+    .chat-header-actions .icon-btn {
+        width: 34px;
+        height: 34px;
+    }
+
+    .ojachat-history-head {
+        padding:
+            12px;
+    }
+
+    .ojachat-history-list {
+        padding:
+            8px;
+    }
+
+    .ojachat-history-footer {
+        padding:
+            9px 10px;
+    }
+
+    .ojachat-history-footer small {
+        max-width:
+            200px;
+    }
+}

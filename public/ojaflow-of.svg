@@ -1,0 +1,63 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Dark Emerald Gradient -->
+    <linearGradient id="emerald-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0E241B" />
+      <stop offset="50%" stop-color="#091712" />
+      <stop offset="100%" stop-color="#030806" />
+    </linearGradient>
+
+    <!-- Rich Metallic Gold Gradient -->
+    <linearGradient id="gold-metallic" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F7E7B4" />
+      <stop offset="25%" stop-color="#E5C158" />
+      <stop offset="50%" stop-color="#B88A28" />
+      <stop offset="75%" stop-color="#E5C158" />
+      <stop offset="100%" stop-color="#996E18" />
+    </linearGradient>
+
+    <!-- Inner Radial Glow -->
+    <radialGradient id="gold-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F7E7B4" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#D4AF37" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Canvas Background -->
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#emerald-bg)" />
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#gold-glow)" />
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="none" stroke="url(#gold-metallic)" stroke-width="2" stroke-opacity="0.35" />
+
+  <g transform="translate(10, 0)">
+    <!-- THE 'O': Continuous Core Operations Loop (Sales, Stock, Expenses, Debts) -->
+    <path d="M 215 120 
+             C 130 120, 75 180, 75 256 
+             C 75 332, 130 392, 215 392 
+             C 300 392, 355 332, 355 256 
+             C 355 180, 300 120, 215 120 Z 
+             M 215 165 
+             C 262 165, 305 202, 305 256 
+             C 305 310, 262 347, 215 347 
+             C 168 347, 125 310, 125 256 
+             C 125 202, 168 165, 215 165 Z" fill="url(#gold-metallic)" />
+
+    <!-- Feature Nodes (4 Pillars on the 'O' Ring) -->
+    <circle cx="215" cy="142" r="5" fill="#FFF8DC" />
+    <circle cx="215" cy="370" r="5" fill="#FFF8DC" />
+    <circle cx="100" cy="256" r="5" fill="#FFF8DC" />
+
+    <!-- THE 'F': Upward Growth Bars & Vertical Backbone -->
+    <!-- Vertical Spine -->
+    <path d="M 305 120 L 350 120 L 350 392 L 305 392 Z" fill="url(#gold-metallic)" />
+    
+    <!-- Top Growth Bar (Sales & Profitability) -->
+    <path d="M 305 120 L 425 120 L 425 162 L 305 162 Z" fill="url(#gold-metallic)" />
+
+    <!-- Mid Growth Bar (Cash Flow & Inventory) -->
+    <path d="M 305 234 L 395 234 L 395 276 L 305 276 Z" fill="url(#gold-metallic)" />
+
+    <!-- Clean Serif Feet (No dot, grounded foundation) -->
+    <path d="M 285 382 L 370 382 L 370 392 L 285 392 Z" fill="url(#gold-metallic)" />
+    <path d="M 405 120 L 425 120 L 425 172 L 410 172 Z" fill="url(#gold-metallic)" />
+  </g>
+</svg>

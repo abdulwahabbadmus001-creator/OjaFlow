@@ -1,0 +1,510 @@
+/* ==========================================================
+   OJAFLOW — OJACHAT MARKDOWN
+   ========================================================== */
+
+.ojachat-markdown {
+    position: relative;
+    z-index: 1;
+
+    width: 100%;
+    min-width: 0;
+
+    color: inherit;
+
+    overflow-wrap: anywhere;
+    word-break: normal;
+
+    pointer-events: auto;
+}
+
+.ojachat-markdown> :first-child {
+    margin-top: 0;
+}
+
+.ojachat-markdown> :last-child {
+    margin-bottom: 0;
+}
+
+/* ==========================================================
+   PARAGRAPHS
+   ========================================================== */
+
+.ojachat-markdown p {
+    margin: 0.55rem 0;
+
+    line-height: 1.65;
+}
+
+/* ==========================================================
+   HEADINGS
+   ========================================================== */
+
+.ojachat-markdown h1,
+.ojachat-markdown h2,
+.ojachat-markdown h3,
+.ojachat-markdown h4,
+.ojachat-markdown h5,
+.ojachat-markdown h6 {
+    margin:
+        1.15rem 0 0.5rem;
+
+    color:
+        var(--of-gold-light,
+            #f3e5ab);
+
+    font-family:
+        "Cormorant Garamond",
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-weight: 700;
+
+    line-height: 1.2;
+
+    letter-spacing:
+        -0.015em;
+}
+
+.ojachat-markdown h1 {
+    font-size: 1.42rem;
+}
+
+.ojachat-markdown h2 {
+    font-size: 1.26rem;
+}
+
+.ojachat-markdown h3 {
+    font-size: 1.12rem;
+}
+
+.ojachat-markdown h4 {
+    font-size: 1rem;
+}
+
+.ojachat-markdown h5,
+.ojachat-markdown h6 {
+    font-size: 0.92rem;
+}
+
+/* ==========================================================
+   BOLD / ITALIC
+   ========================================================== */
+
+.ojachat-markdown strong {
+    color:
+        var(--of-gold-light,
+            #f3e5ab);
+
+    font-weight: 750;
+}
+
+.ojachat-markdown em {
+    font-style: italic;
+}
+
+/* ==========================================================
+   LINKS
+   ========================================================== */
+
+.ojachat-markdown a,
+.ojachat-markdown .ojachat-link {
+    position: relative;
+    z-index: 5;
+
+    display: inline;
+
+    color:
+        var(--of-gold,
+            #d4af37);
+
+    font-weight: 700;
+
+    text-decoration: underline;
+
+    text-decoration-color:
+        rgba(212,
+            175,
+            55,
+            0.65);
+
+    text-decoration-thickness:
+        1px;
+
+    text-underline-offset:
+        3px;
+
+    cursor: pointer !important;
+
+    pointer-events: auto !important;
+
+    touch-action: manipulation;
+
+    transition:
+        color 150ms ease,
+        text-decoration-color 150ms ease;
+}
+
+.ojachat-markdown a:hover,
+.ojachat-markdown .ojachat-link:hover {
+    color:
+        var(--of-gold-light,
+            #f3e5ab);
+
+    text-decoration-color:
+        currentColor;
+}
+
+.ojachat-markdown a:focus-visible,
+.ojachat-markdown .ojachat-link:focus-visible {
+    outline:
+        2px solid var(--of-gold,
+            #d4af37);
+
+    outline-offset: 3px;
+
+    border-radius: 3px;
+}
+
+/* ==========================================================
+   LISTS
+   ========================================================== */
+
+.ojachat-markdown ul,
+.ojachat-markdown ol {
+    margin:
+        0.65rem 0;
+
+    padding-left:
+        1.4rem;
+}
+
+.ojachat-markdown li {
+    margin:
+        0.32rem 0;
+
+    line-height: 1.6;
+}
+
+.ojachat-markdown li::marker {
+    color:
+        var(--of-gold,
+            #d4af37);
+}
+
+.ojachat-markdown li>p {
+    margin:
+        0.2rem 0;
+}
+
+.ojachat-markdown ul ul,
+.ojachat-markdown ul ol,
+.ojachat-markdown ol ul,
+.ojachat-markdown ol ol {
+    margin:
+        0.25rem 0;
+}
+
+/* ==========================================================
+   BLOCKQUOTES
+   ========================================================== */
+
+.ojachat-markdown blockquote {
+    margin:
+        0.85rem 0;
+
+    padding:
+        0.65rem 0.85rem;
+
+    border-left:
+        3px solid var(--of-gold,
+            #d4af37);
+
+    border-radius:
+        0 10px 10px 0;
+
+    background:
+        rgba(212,
+            175,
+            55,
+            0.06);
+
+    color:
+        var(--ink-soft,
+            inherit);
+}
+
+.ojachat-markdown blockquote p {
+    margin: 0;
+}
+
+/* ==========================================================
+   INLINE CODE
+   ========================================================== */
+
+.ojachat-markdown code {
+    padding:
+        0.14em 0.38em;
+
+    border:
+        1px solid var(--of-border,
+            var(--line));
+
+    border-radius:
+        6px;
+
+    background:
+        rgba(0,
+            0,
+            0,
+            0.16);
+
+    color:
+        var(--of-gold-light,
+            #f3e5ab);
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        Menlo,
+        monospace;
+
+    font-size:
+        0.87em;
+}
+
+/* ==========================================================
+   CODE BLOCKS
+   ========================================================== */
+
+.ojachat-markdown pre {
+    width: 100%;
+    max-width: 100%;
+
+    overflow-x: auto;
+
+    margin:
+        0.8rem 0;
+
+    padding:
+        0.9rem;
+
+    border:
+        1px solid rgba(212,
+            175,
+            55,
+            0.14);
+
+    border-radius:
+        12px;
+
+    background:
+        #050d0a;
+
+    color:
+        #edf3ef;
+
+    line-height: 1.55;
+}
+
+.ojachat-markdown pre code {
+    padding: 0;
+
+    border: 0;
+
+    border-radius: 0;
+
+    background:
+        transparent;
+
+    color: inherit;
+
+    font-size:
+        0.82rem;
+
+    white-space: pre;
+}
+
+/* ==========================================================
+   HORIZONTAL RULE
+   ========================================================== */
+
+.ojachat-markdown hr {
+    margin:
+        1rem 0;
+
+    border: 0;
+
+    border-top:
+        1px solid rgba(212,
+            175,
+            55,
+            0.18);
+}
+
+/* ==========================================================
+   TABLES
+   ========================================================== */
+
+.ojachat-markdown table {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+
+    overflow-x: auto;
+
+    margin:
+        0.85rem 0;
+
+    border-spacing: 0;
+
+    border-collapse:
+        collapse;
+
+    font-size:
+        0.8rem;
+}
+
+.ojachat-markdown thead {
+    background:
+        rgba(212,
+            175,
+            55,
+            0.07);
+}
+
+.ojachat-markdown th,
+.ojachat-markdown td {
+    padding:
+        0.55rem 0.65rem;
+
+    border:
+        1px solid rgba(212,
+            175,
+            55,
+            0.15);
+
+    text-align: left;
+
+    vertical-align: top;
+}
+
+.ojachat-markdown th {
+    color:
+        var(--of-gold-light,
+            #f3e5ab);
+
+    font-weight: 700;
+}
+
+/* ==========================================================
+   TASK LISTS
+   ========================================================== */
+
+.ojachat-markdown .contains-task-list {
+    padding-left: 0;
+
+    list-style: none;
+}
+
+.ojachat-markdown .task-list-item {
+    list-style: none;
+}
+
+.ojachat-markdown .task-list-item input {
+    margin-right:
+        0.45rem;
+
+    accent-color:
+        var(--of-gold,
+            #d4af37);
+}
+
+/* ==========================================================
+   IMAGES
+   ========================================================== */
+
+.ojachat-markdown img {
+    display: block;
+
+    max-width: 100%;
+    height: auto;
+
+    margin:
+        0.75rem 0;
+
+    border:
+        1px solid rgba(212,
+            175,
+            55,
+            0.16);
+
+    border-radius:
+        12px;
+}
+
+/* ==========================================================
+   CLICK LAYER PROTECTION
+   ========================================================== */
+
+.message.assistant {
+    position: relative;
+}
+
+.message.assistant .ojachat-markdown {
+    position: relative;
+
+    z-index: 2;
+
+    pointer-events: auto;
+}
+
+.message.assistant .ojachat-markdown a {
+    position: relative;
+
+    z-index: 3;
+
+    pointer-events: auto !important;
+
+    cursor: pointer !important;
+}
+
+/* ==========================================================
+   RESPONSIVE
+   ========================================================== */
+
+@media (max-width: 640px) {
+    .ojachat-markdown h1 {
+        font-size:
+            1.3rem;
+    }
+
+    .ojachat-markdown h2 {
+        font-size:
+            1.16rem;
+    }
+
+    .ojachat-markdown h3 {
+        font-size:
+            1.05rem;
+    }
+
+    .ojachat-markdown ul,
+    .ojachat-markdown ol {
+        padding-left:
+            1.2rem;
+    }
+
+    .ojachat-markdown pre {
+        padding:
+            0.75rem;
+    }
+
+    .ojachat-markdown th,
+    .ojachat-markdown td {
+        padding:
+            0.48rem;
+    }
+}

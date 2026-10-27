@@ -1621,3 +1621,169 @@ h3 {
         animation: none;
     }
 }
+
+
+/* ==========================================================
+   OJACHAT MARKDOWN
+   ========================================================== */
+
+.markdown-content {
+    width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.markdown-content> :first-child {
+    margin-top: 0;
+}
+
+.markdown-content> :last-child {
+    margin-bottom: 0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+    margin: 1.1em 0 0.45em;
+    color: var(--of-gold-light, #F3E5AB);
+    font-family:
+        "Cormorant Garamond",
+        Georgia,
+        serif;
+    line-height: 1.2;
+}
+
+.markdown-content h1 {
+    font-size: 1.35rem;
+}
+
+.markdown-content h2 {
+    font-size: 1.18rem;
+}
+
+.markdown-content h3 {
+    font-size: 1.05rem;
+}
+
+.markdown-content h4 {
+    font-size: 0.95rem;
+}
+
+.markdown-content p {
+    margin: 0.55em 0;
+    line-height: 1.65;
+}
+
+.markdown-content strong {
+    color: var(--of-ink, inherit);
+    font-weight: 700;
+}
+
+.message.assistant .markdown-content strong {
+    color: var(--of-gold-light, #F3E5AB);
+}
+
+.markdown-content em {
+    font-style: italic;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+    margin: 0.65em 0;
+    padding-left: 1.35rem;
+}
+
+.markdown-content li {
+    margin: 0.3em 0;
+    line-height: 1.55;
+}
+
+.markdown-content li::marker {
+    color: var(--of-gold, #D4AF37);
+}
+
+.markdown-content a {
+    color: var(--of-gold, #D4AF37);
+    text-decoration: underline;
+    text-decoration-color: rgba(212, 175, 55, 0.45);
+    text-underline-offset: 3px;
+    font-weight: 600;
+}
+
+.markdown-content a:hover {
+    color: var(--of-gold-light, #F3E5AB);
+    text-decoration-color: currentColor;
+}
+
+.markdown-content blockquote {
+    margin: 0.8em 0;
+    padding: 0.55rem 0.8rem;
+    border-left: 3px solid var(--of-gold, #D4AF37);
+    background: rgba(212, 175, 55, 0.06);
+    border-radius: 0 10px 10px 0;
+}
+
+.markdown-content blockquote p {
+    margin: 0;
+}
+
+.markdown-content code {
+    padding: 0.15em 0.4em;
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.18);
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+    font-size: 0.88em;
+}
+
+.markdown-content pre {
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 0.8em 0;
+    padding: 0.85rem;
+    border: 1px solid var(--of-border);
+    border-radius: 12px;
+    background: #050d0a;
+}
+
+.markdown-content pre code {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #e8eee9;
+}
+
+.markdown-content hr {
+    margin: 1rem 0;
+    border: 0;
+    border-top: 1px solid var(--of-border);
+}
+
+.markdown-content table {
+    width: 100%;
+    margin: 0.8em 0;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.markdown-content th,
+.markdown-content td {
+    padding: 0.55rem;
+    border: 1px solid var(--of-border);
+    text-align: left;
+}
+
+.markdown-content th {
+    color: var(--of-gold-light, #F3E5AB);
+    background: rgba(212, 175, 55, 0.07);
+}
+
+.markdown-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 10px;
+}
