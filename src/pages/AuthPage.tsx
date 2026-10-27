@@ -9,27 +9,44 @@ import {
   ShieldCheck,
   Sparkles
 } from 'lucide-react';
+
 import { api } from '../lib/api';
 import { languageOptions, t } from '../lib/language';
 import { normalizeNigerianPhone } from '../lib/phone';
-import type { BusinessProfile, LanguagePreference, UserProfile } from '../types';
+import type {
+  BusinessProfile,
+  LanguagePreference,
+  UserProfile
+} from '../types';
+
+import BrandLogo from '../components/BrandLogo';
 
 type AuthMode = 'login' | 'register' | 'forgot';
 
 export default function AuthPage({
   onAuthenticated
 }: {
-  onAuthenticated: (profile: UserProfile, business?: BusinessProfile | null) => void;
+  onAuthenticated: (
+    profile: UserProfile,
+    business?: BusinessProfile | null
+  ) => void;
 }) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [preferredLanguage, setPreferredLanguage] = useState<LanguagePreference>('en');
-  const tr = (key: string, vars?: Record<string, string | number>) => t(preferredLanguage, key, vars);
+
+  const [preferredLanguage, setPreferredLanguage] =
+    useState<LanguagePreference>('en');
+
+  const tr = (
+    key: string,
+    vars?: Record<string, string | number>
+  ) => t(preferredLanguage, key, vars);
 
   async function login(form: HTMLFormElement) {
     const fd = new FormData(form);
+
     setBusy(true);
     setError('');
 
@@ -38,9 +55,14 @@ export default function AuthPage({
         normalizeNigerianPhone(String(fd.get('phone') || '')),
         String(fd.get('password') || '')
       );
+
       onAuthenticated(result.profile, result.business);
     } catch (e) {
-      setError(e instanceof Error ? e.message : tr('Could not sign in.'));
+      setError(
+        e instanceof Error
+          ? e.message
+          : tr('Could not sign in.')
+      );
     } finally {
       setBusy(false);
     }
@@ -48,11 +70,14 @@ export default function AuthPage({
 
   async function register(form: HTMLFormElement) {
     const fd = new FormData(form);
+
     const password = String(fd.get('password') || '');
     const confirm = String(fd.get('confirm') || '');
 
     if (password.length < 8) {
-      setError(tr('Password must contain at least 8 characters.'));
+      setError(
+        tr('Password must contain at least 8 characters.')
+      );
       return;
     }
 
@@ -66,16 +91,23 @@ export default function AuthPage({
 
     try {
       const result = await api.register({
-        phone: normalizeNigerianPhone(String(fd.get('phone') || '')),
+        phone: normalizeNigerianPhone(
+          String(fd.get('phone') || '')
+        ),
         firstName: String(fd.get('firstName') || '').trim(),
         lastName: String(fd.get('lastName') || '').trim(),
         otherName: String(fd.get('otherName') || '').trim(),
         password,
         preferredLanguage
       });
+
       onAuthenticated(result.profile, result.business);
     } catch (e) {
-      setError(e instanceof Error ? e.message : tr('Could not create your account.'));
+      setError(
+        e instanceof Error
+          ? e.message
+          : tr('Could not create your account.')
+      );
     } finally {
       setBusy(false);
     }
@@ -85,24 +117,43 @@ export default function AuthPage({
     <AuthLayout
       language={preferredLanguage}
       eyebrow={tr('BUILT FOR EVERYDAY TRADE')}
-      heading={<>{tr('Know your numbers.')}<br />{tr('Run with confidence.')}</>}
-      body={tr('Sales, stock, expenses, customers, debts and business guidance in one calm workspace.')}
+      heading={
+        <>
+          {tr('Know your numbers.')}
+          <br />
+          {tr('Run with confidence.')}
+        </>
+      }
+      body={tr(
+        'Sales, stock, expenses, customers, debts and business guidance in one calm workspace.'
+      )}
     >
       <div className="auth-language-inline">
         <Globe2 size={16} />
+
         <select
           aria-label={tr('Language')}
           value={preferredLanguage}
-          onChange={event => setPreferredLanguage(event.target.value as LanguagePreference)}
+          onChange={event =>
+            setPreferredLanguage(
+              event.target.value as LanguagePreference
+            )
+          }
         >
           {languageOptions.map(option => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+            <option
+              key={option.value}
+              value={option.value}
+            >
+              {option.label}
+            </option>
           ))}
         </select>
       </div>
 
       <div className="auth-tabs">
         <button
+          type="button"
           className={mode === 'login' ? 'active' : ''}
           onClick={() => {
             setMode('login');
@@ -113,6 +164,7 @@ export default function AuthPage({
         </button>
 
         <button
+          type="button"
           className={mode === 'register' ? 'active' : ''}
           onClick={() => {
             setMode('register');
@@ -125,9 +177,17 @@ export default function AuthPage({
 
       {mode === 'login' ? (
         <>
-          <span className="eyebrow">{tr('WELCOME BACK')}</span>
+          <span className="eyebrow">
+            {tr('WELCOME BACK')}
+          </span>
+
           <h2>{tr('Continue to your business')}</h2>
-          <p className="muted">{tr('Use your registered phone number and password.')}</p>
+
+          <p className="muted">
+            {tr(
+              'Use your registered phone number and password.'
+            )}
+          </p>
 
           <form
             className="form-stack"
@@ -138,14 +198,22 @@ export default function AuthPage({
           >
             <label>
               {tr('Phone number')}
+
               <div className="phone-field">
                 <span>+234</span>
-                <input name="phone" inputMode="tel" placeholder="801 234 5678" required />
+
+                <input
+                  name="phone"
+                  inputMode="tel"
+                  placeholder="801 234 5678"
+                  required
+                />
               </div>
             </label>
 
             <label>
               {tr('Password')}
+
               <div className="password-field">
                 <input
                   name="password"
@@ -153,12 +221,23 @@ export default function AuthPage({
                   placeholder={tr('Your password')}
                   required
                 />
+
                 <button
                   type="button"
-                  onClick={() => setShowPassword(value => !value)}
-                  aria-label={showPassword ? tr('Hide password') : tr('Show password')}
+                  onClick={() =>
+                    setShowPassword(value => !value)
+                  }
+                  aria-label={
+                    showPassword
+                      ? tr('Hide password')
+                      : tr('Show password')
+                  }
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? (
+                    <EyeOff size={18} />
+                  ) : (
+                    <Eye size={18} />
+                  )}
                 </button>
               </div>
             </label>
@@ -174,26 +253,45 @@ export default function AuthPage({
               {tr('Forgot password?')}
             </button>
 
-            {error && <div className="form-error">{error}</div>}
+            {error && (
+              <div className="form-error">
+                {error}
+              </div>
+            )}
 
-            <button disabled={busy} className="primary-btn full">
-              {busy ? tr('Signing in…') : tr('Log in')} <ArrowRight size={18} />
+            <button
+              disabled={busy}
+              className="primary-btn full"
+            >
+              {busy
+                ? tr('Signing in…')
+                : tr('Log in')}
+
+              <ArrowRight size={18} />
             </button>
           </form>
         </>
       ) : mode === 'register' ? (
         <>
-          <span className="eyebrow">{tr('NEW TO OJAFLOW?')}</span>
+          <span className="eyebrow">
+            {tr('NEW TO OJAFLOW?')}
+          </span>
+
           <h2>{tr('Create your trader account')}</h2>
 
           <p className="muted">
-            {tr('No email required. Your phone number is your login ID and your password protects the account.')}
+            {tr(
+              'No email required. Your phone number is your login ID and your password protects the account.'
+            )}
           </p>
 
           <div className="auth-security-note">
             <ShieldCheck size={18} />
+
             <span>
-              {tr('SMS verification is not required in this MVP. Double-check your phone number before creating the account.')}
+              {tr(
+                'SMS verification is not required in this MVP. Double-check your phone number before creating the account.'
+              )}
             </span>
           </div>
 
@@ -205,69 +303,154 @@ export default function AuthPage({
             }}
           >
             <div className="language-select-card">
-              <div className="language-select-icon"><Globe2 size={19} /></div>
+              <div className="language-select-icon">
+                <Globe2 size={19} />
+              </div>
+
               <div className="grow">
                 <strong>{tr('Language')}</strong>
-                <span>{tr('Choose the language OjaFlow should use across the app.')}</span>
+
+                <span>
+                  {tr(
+                    'Choose the language OjaFlow should use across the app.'
+                  )}
+                </span>
               </div>
+
               <select
                 aria-label={tr('Language')}
                 value={preferredLanguage}
-                onChange={event => setPreferredLanguage(event.target.value as LanguagePreference)}
+                onChange={event =>
+                  setPreferredLanguage(
+                    event.target
+                      .value as LanguagePreference
+                  )
+                }
               >
                 {languageOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option
+                    key={option.value}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div className="two-col">
-              <label>{tr('First name')}<input name="firstName" required /></label>
-              <label>{tr('Surname')}<input name="lastName" required /></label>
+              <label>
+                {tr('First name')}
+                <input name="firstName" required />
+              </label>
+
+              <label>
+                {tr('Surname')}
+                <input name="lastName" required />
+              </label>
             </div>
 
-            <label>{tr('Other name')} <span className="optional">{tr('Optional')}</span><input name="otherName" /></label>
+            <label>
+              {tr('Other name')}{' '}
+              <span className="optional">
+                {tr('Optional')}
+              </span>
+
+              <input name="otherName" />
+            </label>
 
             <label>
               {tr('Phone number')}
+
               <div className="phone-field">
                 <span>+234</span>
-                <input name="phone" inputMode="tel" placeholder="801 234 5678" required />
+
+                <input
+                  name="phone"
+                  inputMode="tel"
+                  placeholder="801 234 5678"
+                  required
+                />
               </div>
             </label>
 
             <div className="two-col">
-              <label>{tr('Password')}<input name="password" type="password" minLength={8} required /></label>
-              <label>{tr('Confirm password')}<input name="confirm" type="password" minLength={8} required /></label>
+              <label>
+                {tr('Password')}
+
+                <input
+                  name="password"
+                  type="password"
+                  minLength={8}
+                  required
+                />
+              </label>
+
+              <label>
+                {tr('Confirm password')}
+
+                <input
+                  name="confirm"
+                  type="password"
+                  minLength={8}
+                  required
+                />
+              </label>
             </div>
 
-            {error && <div className="form-error">{error}</div>}
+            {error && (
+              <div className="form-error">
+                {error}
+              </div>
+            )}
 
-            <button disabled={busy} className="primary-btn full">
-              {busy ? tr('Creating account…') : tr('Create account')} <ArrowRight size={18} />
+            <button
+              disabled={busy}
+              className="primary-btn full"
+            >
+              {busy
+                ? tr('Creating account…')
+                : tr('Create account')}
+
+              <ArrowRight size={18} />
             </button>
           </form>
         </>
       ) : (
         <>
           <button
+            type="button"
             className="back-btn auth-back"
             onClick={() => {
               setMode('login');
               setError('');
             }}
           >
-            <ArrowLeft size={17} /> {tr('Back to login')}
+            <ArrowLeft size={17} />
+            {tr('Back to login')}
           </button>
 
-          <span className="eyebrow">{tr('ACCOUNT RECOVERY')}</span>
+          <span className="eyebrow">
+            {tr('ACCOUNT RECOVERY')}
+          </span>
+
           <h2>{tr('Forgot your password?')}</h2>
 
           <div className="recovery-info-card">
-            <div className="round-icon"><KeyRound /></div>
-            <p>{tr('Self-service password recovery is temporarily unavailable because OjaFlow does not yet have a verified free recovery channel.')}</p>
+            <div className="round-icon">
+              <KeyRound />
+            </div>
+
+            <p>
+              {tr(
+                'Self-service password recovery is temporarily unavailable because OjaFlow does not yet have a verified free recovery channel.'
+              )}
+            </p>
+
             <p className="muted">
-              {tr('If you are still signed in on another device, open Settings → Security & Login → Change Password.')}
+              {tr(
+                'If you are still signed in on another device, open Settings → Security & Login → Change Password.'
+              )}
             </p>
           </div>
         </>
@@ -291,38 +474,80 @@ function AuthLayout({
 }) {
   const tr = (key: string) => t(language, key);
 
-  return (
-    <div className="auth-layout">
-      <section className="auth-brand-panel">
-        <div className="auth-brand">
-          <img
-  src="/ojaflow.svg?v=7"
-  alt="OjaFlow"
-  className="brand-logo brand-logo-large"
-/>
-          <div>
-            <b>OjaFlow</b>
-            <small>{tr('Business command centre')}</small>
-          </div>
-        </div>
+  const marketImages = [
+    '/auth-market/market-1.webp',
+    '/auth-market/market-2.webp',
+    '/auth-market/market-3.webp',
+    '/auth-market/market-4.webp'
+  ];
 
-        <div className="auth-brand-copy">
-          <span className="eyebrow light">{eyebrow}</span>
+  return (
+    <main className="premium-auth">
+      <div
+        className="auth-market-background"
+        aria-hidden="true"
+      >
+        <div className="auth-market-track">
+          {[...marketImages, ...marketImages].map(
+            (image, index) => (
+              <div
+                key={`${image}-${index}`}
+                className="auth-market-photo"
+                style={{
+                  backgroundImage: `url("${image}")`
+                }}
+              />
+            )
+          )}
+        </div>
+      </div>
+
+      <div
+        className="auth-market-mask"
+        aria-hidden="true"
+      />
+
+      <header className="auth-premium-top">
+        <BrandLogo
+          subtitle={tr('Business command centre')}
+        />
+      </header>
+
+      <div className="auth-premium-content">
+        <section className="auth-premium-story">
+          <span className="eyebrow light">
+            {eyebrow}
+          </span>
+
           <h1>{heading}</h1>
+
           <p>{body}</p>
 
           <div className="auth-benefits">
-            <span><ShieldCheck size={18} /> {tr('Private account controls')}</span>
-            <span><Sparkles size={18} /> {tr('OjaChat intelligent assistant')}</span>
+            <span>
+              <ShieldCheck size={18} />
+              {tr('Private account controls')}
+            </span>
+
+            <span>
+              <Sparkles size={18} />
+              {tr('OjaChat intelligent assistant')}
+            </span>
           </div>
-        </div>
 
-        <small className="auth-footnote">{tr('Nigeria-first. Trader-focused. Built to scale.')}</small>
-      </section>
+          <small className="auth-footnote">
+            {tr(
+              'Nigeria-first. Trader-focused. Built to scale.'
+            )}
+          </small>
+        </section>
 
-      <section className="auth-form-panel">
-        <div className="auth-card wide">{children}</div>
-      </section>
-    </div>
+        <section className="auth-premium-form">
+          <div className="auth-card wide">
+            {children}
+          </div>
+        </section>
+      </div>
+    </main>
   );
 }

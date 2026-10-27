@@ -1,3 +1,4 @@
+import BrandLogo from './components/BrandLogo';
 import { useEffect, useMemo, useState } from 'react';
 import type { AppSection, BusinessProfile, ThemePreference, UserProfile } from './types';
 import AuthPage from './pages/AuthPage';
@@ -81,13 +82,16 @@ export default function App() {
     return { profile: currentProfile, business: currentBusiness };
   }, [session, currentProfile, currentBusiness]);
 
-  if (checking) {
-    return <div className="splash"><img
-  src="/ojaflow.svg?v=7"
-  alt="OjaFlow"
-  className="brand-logo brand-logo-giant"
-/><strong>OjaFlow</strong><small>Preparing your business workspace…</small></div>;
-  }
+if (checking) {
+  return (
+    <div className="splash">
+      <BrandLogo />
+      <small>
+        Preparing your business workspace…
+      </small>
+    </div>
+  );
+}
 
   if (!session) return <AuthPage onAuthenticated={activate} />;
   if (!store.profile) return <div className="splash"><strong>{t(session.preferredLanguage, 'Loading your profile…')}</strong></div>;

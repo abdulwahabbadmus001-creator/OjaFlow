@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit --pretty false"
   },
   "dependencies": {
+    "@fontsource/cormorant-garamond": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
     "@neon/config": "^1.7.3",
     "@neon/env": "^1.4.4",
     "lucide-react": "^1.47.0",
