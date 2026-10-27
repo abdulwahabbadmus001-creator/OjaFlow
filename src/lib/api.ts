@@ -41,7 +41,7 @@ async function request<T>(
     });
   } catch {
     throw new Error(
-      'OjaFlow couldn't connect right now. Check your internet connection and try again.'
+      'OjaFlow could not connect right now. Check your internet connection and try again.'
     );
   }
 
