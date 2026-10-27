@@ -764,7 +764,11 @@ function AboutScreen({ onBack }: { onBack: () => void }) {
   return (
     <SimpleScreen title={tr('About OjaFlow')} subtitle={tr('Business clarity for everyday trade.')} onBack={onBack}>
       <div className="about-hero">
-        <span className="brand-mark giant">O</span>
+        <img
+  src="/ojaflow.svg?v=7"
+  alt="OjaFlow"
+  className="brand-logo brand-logo-giant"
+/>
         <div><strong>OjaFlow</strong><span>Version 1.1</span></div>
       </div>
       <p className="legal-copy">{tr('OjaFlow is designed to help small traders understand and manage sales, stock, expenses, customers and credit without requiring complex accounting software.')}</p>

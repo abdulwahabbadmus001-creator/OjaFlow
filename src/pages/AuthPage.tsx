@@ -295,7 +295,11 @@ function AuthLayout({
     <div className="auth-layout">
       <section className="auth-brand-panel">
         <div className="auth-brand">
-          <span className="brand-mark large">O</span>
+          <img
+  src="/ojaflow.svg?v=7"
+  alt="OjaFlow"
+  className="brand-logo brand-logo-large"
+/>
           <div>
             <b>OjaFlow</b>
             <small>{tr('Business command centre')}</small>

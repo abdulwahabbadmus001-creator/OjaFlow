@@ -82,7 +82,11 @@ export default function App() {
   }, [session, currentProfile, currentBusiness]);
 
   if (checking) {
-    return <div className="splash"><span className="brand-mark giant">O</span><strong>OjaFlow</strong><small>Preparing your business workspace…</small></div>;
+    return <div className="splash"><img
+  src="/ojaflow.svg?v=7"
+  alt="OjaFlow"
+  className="brand-logo brand-logo-giant"
+/><strong>OjaFlow</strong><small>Preparing your business workspace…</small></div>;
   }
 
   if (!session) return <AuthPage onAuthenticated={activate} />;

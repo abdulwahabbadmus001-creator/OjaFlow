@@ -60,7 +60,11 @@ export default function AppShell({
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <span className="brand-mark">O</span>
+          <img
+  src="/ojaflow.svg?v=7"
+  alt="OjaFlow"
+  className="brand-logo"
+/>
           <div>
             <strong>OjaFlow</strong>
             <small>{tr('Business command centre')}</small>
@@ -108,7 +112,11 @@ export default function AppShell({
       <main className="main-area">
         <header className="mobile-top">
           <div className="brand compact">
-            <span className="brand-mark">O</span>
+           <img
+  src="/ojaflow.svg?v=7"
+  alt="OjaFlow"
+  className="brand-logo"
+/> 
             <div>
               <b>OjaFlow</b>
               <small>{business.businessName}</small>
