@@ -87,7 +87,7 @@ if (checking) {
     <div className="splash">
       <BrandLogo />
       <small>
-        Preparing your business workspace…
+        Preparing your business…
       </small>
     </div>
   );
