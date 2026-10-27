@@ -123,7 +123,7 @@ export default function BusinessTrendChart({ data, language = 'en' }: { data: St
     <article className="panel trend-panel">
       <div className="panel-head trend-head">
         <div>
-          <span className="eyebrow">{t(language, 'HOW YOUR BUSINESS IS DOING')}</span>
+          <span className="eyebrow">{t(language, 'dashboard.eyebrow')}</span>
           <h2>{t(language, 'dashboard.chartTitle')}</h2>
           <p>{t(language, 'dashboard.chartSubtitle')}</p>
         </div>
