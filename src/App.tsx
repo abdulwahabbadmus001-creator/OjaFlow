@@ -94,7 +94,7 @@ if (checking) {
     <div className="splash">
       <BrandLogo />
       <small>
-        Preparing your business workspaceâ€¦
+        Preparing your business…
       </small>
     </div>
   );
@@ -147,7 +147,7 @@ if (checking) {
     );
   }
 
-  if (!shell) return <div className="splash"><strong>{t(session.preferredLanguage, 'Preparing workspaceâ€¦')}</strong></div>;
+  if (!shell) return <div className="splash"><strong>{t(session.preferredLanguage, 'Preparing workspace…')}</strong></div>;
   const { profile, business } = shell;
 
   return (

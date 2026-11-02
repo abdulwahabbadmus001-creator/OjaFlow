@@ -138,7 +138,7 @@ export default function SettingsPage({
         <div>
           <span className="eyebrow">{tr('CONTROL CENTRE')}</span>
           <h1>{tr('Settings')}</h1>
-          <p>{tr('Manage your account, business records and preferences.')}</p>
+          <p>{tr('Account, security, data and preferences — without exposing private details here.')}</p>
         </div>
       </header>
 
@@ -183,7 +183,7 @@ export default function SettingsPage({
 function syncSubtitle(status: SyncStatus, tr: (key: string) => string) {
   if (status === 'syncing') return tr('Syncing your latest changes');
   if (status === 'synced') return tr('Your latest records are saved to your account');
-  if (status === 'offline') return tr('Offline â€” changes remain available locally');
+  if (status === 'offline') return tr('Offline — changes remain available locally');
   if (status === 'error') return tr('A sync issue needs attention');
   return tr('Your records are saved to your account when connected');
 }
@@ -266,7 +266,7 @@ function Reauth({ onVerified }: { onVerified: () => void }) {
   return (
     <div className="reauth">
       <div className="round-icon"><ShieldCheck /></div>
-      <h2>{tr('Confirm itâ€™s you')}</h2>
+      <h2>{tr('Confirm it’s you')}</h2>
       <p className="muted">{tr('Enter your password before changing sensitive account information.')}</p>
       <label>
         {tr('Password')}
@@ -279,7 +279,7 @@ function Reauth({ onVerified }: { onVerified: () => void }) {
       </label>
       {error && <div className="form-error">{error}</div>}
       <button className="primary-btn full" disabled={busy || !password} onClick={submit}>
-        {busy ? tr('Checkingâ€¦') : tr('Continue')}
+        {busy ? tr('Checking…') : tr('Continue')}
       </button>
     </div>
   );
@@ -309,7 +309,7 @@ function ProfileScreen({ profile, onSave, onBack }: {
         <form className="form-stack" onSubmit={event => {
           event.preventDefault();
           void (async () => {
-            setStatus(tr('Savingâ€¦'));
+            setStatus(tr('Saving…'));
             const form = new FormData(event.currentTarget);
             const next = {
               ...profile,
@@ -345,7 +345,7 @@ function ProfileScreen({ profile, onSave, onBack }: {
             <div className="avatar large-avatar">{profile.firstName[0]}{profile.lastName[0]}</div>
             <div>
               <strong>{profile.firstName} {profile.lastName}</strong>
-              <span>{maskPhone(profile.phoneNumber)} â€¢ {languageLabel(profile.preferredLanguage)}</span>
+              <span>{maskPhone(profile.phoneNumber)} • {languageLabel(profile.preferredLanguage)}</span>
             </div>
           </div>
           <div className="privacy-note"><ShieldCheck size={18} /> {tr('Your full phone number is hidden unless it is required for a secure action.')}</div>
@@ -381,7 +381,7 @@ function BusinessScreen({ profile, business, onSave, onBack }: {
         <form className="form-stack" onSubmit={event => {
           event.preventDefault();
           void (async () => {
-            setStatus(tr('Savingâ€¦'));
+            setStatus(tr('Saving…'));
             const form = new FormData(event.currentTarget);
             const next: BusinessProfile = {
               ...business,
@@ -489,7 +489,7 @@ function ChangePasswordScreen({ onBack }: { onBack: () => void }) {
           {show ? <EyeOff size={17} /> : <Eye size={17} />} {show ? tr('Hide passwords') : tr('Show passwords')}
         </button>
         {status && <div className="inline-status">{status}</div>}
-        <button className="primary-btn" disabled={busy}>{busy ? tr('Updatingâ€¦') : tr('Update password')}</button>
+        <button className="primary-btn" disabled={busy}>{busy ? tr('Updating…') : tr('Update password')}</button>
       </form>
     </SimpleScreen>
   );
@@ -586,7 +586,7 @@ function LanguageScreen({
         disabled={busy || selected === profile.preferredLanguage}
         onClick={() => void saveLanguage()}
       >
-        {busy ? tr('Savingâ€¦') : tr('Save language')}
+        {busy ? tr('Saving…') : tr('Save language')}
       </button>
     </SimpleScreen>
   );
@@ -676,7 +676,7 @@ function SyncScreen({ syncStatus, lastSync, onSyncNow, onBack }: {
       </div>
       {message && <div className="inline-status">{message}</div>}
       <button className="primary-btn" onClick={sync} disabled={busy || syncStatus === 'offline'}>
-        <RefreshCw size={17} className={busy ? 'spin' : ''} /> {busy ? tr('Syncingâ€¦') : tr('Sync now')}
+        <RefreshCw size={17} className={busy ? 'spin' : ''} /> {busy ? tr('Syncing…') : tr('Sync now')}
       </button>
     </SimpleScreen>
   );
@@ -904,7 +904,7 @@ function DeleteScreen({ profile, onBack, onDelete }: {
         <label>
           {tr('Account')}
           <input
-            value={`${profile.firstName} ${profile.lastName} â€¢ ${maskPhone(profile.phoneNumber)}`}
+            value={`${profile.firstName} ${profile.lastName} • ${maskPhone(profile.phoneNumber)}`}
             disabled
           />
         </label>
@@ -961,7 +961,7 @@ function DeleteScreen({ profile, onBack, onDelete }: {
           onClick={() => void remove()}
         >
           {busy
-            ? tr('Deletingâ€¦')
+            ? tr('Deleting…')
             : tr('Delete Account Permanently')}
         </button>
       </div>
