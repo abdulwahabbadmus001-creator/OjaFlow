@@ -16,6 +16,8 @@ import { api } from './lib/api';
 import { useStore } from './lib/useStore';
 import { LanguageProvider } from './lib/i18n';
 import { t } from './lib/language';
+import CookieBanner, { COOKIE_CONSENT_KEY } from './components/CookieBanner';
+import LegalPages from './components/LegalPages';
 
 const THEME_KEY = 'ojaflow:theme';
 
@@ -31,9 +33,14 @@ export default function App() {
   const [quick, setQuick] = useState(false);
   const [chat, setChat] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>(() => (localStorage.getItem(THEME_KEY) as ThemePreference) || 'system');
+  const [cookieConsentAccepted, setCookieConsentAccepted] = useState(
+    () => localStorage.getItem(COOKIE_CONSENT_KEY) === 'true'
+  );
 
   const uid = session?.uid || '';
   const store = useStore(uid);
+  const [legalPage, setLegalPage] = useState<'terms' | 'privacy' | 'faq' | null>(null);
+
 
   useEffect(() => {
     const apply = () => {
@@ -93,7 +100,26 @@ if (checking) {
   );
 }
 
-  if (!session) return <AuthPage onAuthenticated={activate} />;
+  if (!session) {
+    return (
+      <>
+        <AuthPage
+          onAuthenticated={activate}
+          cookieConsentAccepted={cookieConsentAccepted}
+        />
+        {!cookieConsentAccepted && (
+          <CookieBanner
+            onAccept={() => {
+              localStorage.setItem(COOKIE_CONSENT_KEY, 'true');
+              setCookieConsentAccepted(true);
+            }}
+            onOpenPrivacy={() => setLegalPage('privacy')}
+          />
+        )}
+        {legalPage && <LegalPages type={legalPage} onClose={() => setLegalPage(null)} />}
+      </>
+    );
+  }
   if (!store.profile) return <div className="splash"><strong>{t(session.preferredLanguage, 'Loading your profileâ€¦')}</strong></div>;
 
   if (!store.business || !session.businessProfileCompleted) {
@@ -131,10 +157,11 @@ if (checking) {
         {section === 'sales' && <SalesPage data={store.data} business={business} preferredLanguage={profile.preferredLanguage} addSale={store.actions.addSale} addExpense={store.actions.addExpense} addCustomer={store.actions.addCustomer} updateCustomer={store.actions.updateCustomer} addInvoice={store.actions.addInvoice} updateInvoice={store.actions.updateInvoice} />}
         {section === 'inventory' && <InventoryPage data={store.data} addProduct={store.actions.addProduct} />}
         {section === 'debts' && <DebtsPage data={store.data} addDebt={store.actions.addDebt} updateDebtPaid={store.actions.updateDebtPaid} />}
-        {section === 'more' && <SettingsPage uid={profile.uid} profile={profile} business={business} data={store.data} onProfile={next => { store.actions.setProfile(next); setSession(next); }} onBusiness={store.actions.setBusiness} onLogout={logout} onDelete={deleted} theme={theme} setTheme={setTheme} syncStatus={store.syncStatus} lastSync={store.lastSync} onSyncNow={store.actions.syncNow} />}
+        {section === 'more' && <SettingsPage uid={profile.uid} profile={profile} business={business} data={store.data} onProfile={next => { store.actions.setProfile(next); setSession(next); }} onBusiness={store.actions.setBusiness} onLogout={logout} onDelete={deleted} theme={theme} setTheme={setTheme} syncStatus={store.syncStatus} lastSync={store.lastSync} onSyncNow={store.actions.syncNow} setLegalPage={setLegalPage} />}
         {quick && <QuickAction onClose={() => setQuick(false)} onNavigate={setSection} />}
         {chat && <OjaChat data={store.data} business={business} onClose={() => setChat(false)} />}
       </AppShell>
+      {legalPage && <LegalPages type={legalPage} onClose={() => setLegalPage(null)} />}
     </LanguageProvider>
   );
 }

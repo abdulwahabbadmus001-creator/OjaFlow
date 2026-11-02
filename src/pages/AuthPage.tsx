@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿﻿import { useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -24,16 +24,20 @@ import BrandLogo from '../components/BrandLogo';
 type AuthMode = 'login' | 'register' | 'forgot';
 
 export default function AuthPage({
-  onAuthenticated
+  onAuthenticated,
+  cookieConsentAccepted
 }: {
   onAuthenticated: (
     profile: UserProfile,
     business?: BusinessProfile | null
   ) => void;
+  cookieConsentAccepted: boolean;
 }) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [registrationChallengeId, setRegistrationChallengeId] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const [preferredLanguage, setPreferredLanguage] =
@@ -69,10 +73,16 @@ export default function AuthPage({
   }
 
   async function register(form: HTMLFormElement) {
+    if (!cookieConsentAccepted) {
+      setError(tr('Accept the essential cookies and browser storage notice before creating an account.'));
+      return;
+    }
+
     const fd = new FormData(form);
 
     const password = String(fd.get('password') || '');
     const confirm = String(fd.get('confirm') || '');
+    const otp = String(fd.get('otp') || '').trim();
 
     if (password.length < 8) {
       setError(
@@ -88,19 +98,31 @@ export default function AuthPage({
 
     setBusy(true);
     setError('');
+    setNotice('');
 
     try {
-      const result = await api.register({
-        phone: normalizeNigerianPhone(
-          String(fd.get('phone') || '')
-        ),
-        firstName: String(fd.get('firstName') || '').trim(),
-        lastName: String(fd.get('lastName') || '').trim(),
-        otherName: String(fd.get('otherName') || '').trim(),
-        password,
-        preferredLanguage
-      });
+      if (!registrationChallengeId) {
+        const { challengeId } = await api.registerStart({
+          phone: normalizeNigerianPhone(
+            String(fd.get('phone') || '')
+          ),
+          firstName: String(fd.get('firstName') || '').trim(),
+          lastName: String(fd.get('lastName') || '').trim(),
+          otherName: String(fd.get('otherName') || '').trim(),
+          password,
+          preferredLanguage
+        });
+        setRegistrationChallengeId(challengeId);
+        setNotice(tr('A verification code has been requested. Enter it below to finish creating your account.'));
+        return;
+      }
 
+      if (!otp) {
+        setError(tr('Enter the verification code.'));
+        return;
+      }
+
+      const result = await api.registerVerify(registrationChallengeId, otp);
       onAuthenticated(result.profile, result.business);
     } catch (e) {
       setError(
@@ -158,6 +180,8 @@ export default function AuthPage({
           onClick={() => {
             setMode('login');
             setError('');
+            setNotice('');
+            setRegistrationChallengeId('');
           }}
         >
           {tr('Log in')}
@@ -169,6 +193,8 @@ export default function AuthPage({
           onClick={() => {
             setMode('register');
             setError('');
+            setNotice('');
+            setRegistrationChallengeId('');
           }}
         >
           {tr('Create account')}
@@ -264,7 +290,7 @@ export default function AuthPage({
               className="primary-btn full"
             >
               {busy
-                ? tr('Signing inâ€¦')
+                ? tr('Signing in…')
                 : tr('Log in')}
 
               <ArrowRight size={18} />
@@ -290,7 +316,7 @@ export default function AuthPage({
 
             <span>
               {tr(
-                'SMS verification is not required in this MVP. Double-check your phone number before creating the account.'
+                'We will ask you to verify your phone number before creating your account.'
               )}
             </span>
           </div>
@@ -321,10 +347,10 @@ export default function AuthPage({
                 aria-label={tr('Language')}
                 value={preferredLanguage}
                 onChange={event =>
-                  setPreferredLanguage(
-                    event.target
-                      .value as LanguagePreference
-                  )
+                    {
+                      setPreferredLanguage(event.target.value as LanguagePreference);
+                      setRegistrationChallengeId('');
+                    }
                 }
               >
                 {languageOptions.map(option => (
@@ -341,12 +367,12 @@ export default function AuthPage({
             <div className="two-col">
               <label>
                 {tr('First name')}
-                <input name="firstName" required />
+                <input name="firstName" required onChange={() => setRegistrationChallengeId('')} />
               </label>
 
               <label>
                 {tr('Surname')}
-                <input name="lastName" required />
+                <input name="lastName" required onChange={() => setRegistrationChallengeId('')} />
               </label>
             </div>
 
@@ -356,7 +382,7 @@ export default function AuthPage({
                 {tr('Optional')}
               </span>
 
-              <input name="otherName" />
+              <input name="otherName" onChange={() => setRegistrationChallengeId('')} />
             </label>
 
             <label>
@@ -370,6 +396,7 @@ export default function AuthPage({
                   inputMode="tel"
                   placeholder="801 234 5678"
                   required
+                  onChange={() => setRegistrationChallengeId('')}
                 />
               </div>
             </label>
@@ -383,6 +410,7 @@ export default function AuthPage({
                   type="password"
                   minLength={8}
                   required
+                  onChange={() => setRegistrationChallengeId('')}
                 />
               </label>
 
@@ -394,6 +422,7 @@ export default function AuthPage({
                   type="password"
                   minLength={8}
                   required
+                  onChange={() => setRegistrationChallengeId('')}
                 />
               </label>
             </div>
@@ -404,13 +433,36 @@ export default function AuthPage({
               </div>
             )}
 
+            {notice && <div className="inline-status">{notice}</div>}
+
+            {registrationChallengeId && (
+              <label>
+                {tr('Verification code')}
+                <input
+                  name="otp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={8}
+                  required
+                />
+              </label>
+            )}
+
+            {!cookieConsentAccepted && (
+              <p className="auth-consent-note">
+                {tr('Accept the essential cookies and browser storage notice below before creating your account.')}
+              </p>
+            )}
+
             <button
-              disabled={busy}
+              disabled={busy || !cookieConsentAccepted}
               className="primary-btn full"
             >
               {busy
-                ? tr('Creating accountâ€¦')
-                : tr('Create account')}
+                ? tr('Please wait…')
+                : registrationChallengeId
+                  ? tr('Verify code and create account')
+                  : tr('Request verification code')}
 
               <ArrowRight size={18} />
             </button>
@@ -449,7 +501,7 @@ export default function AuthPage({
 
             <p className="muted">
               {tr(
-                'If you are still signed in on another device, open Settings â†’ Security & Login â†’ Change Password.'
+                'If you are still signed in on another device, open Settings → Security & Login → Change Password.'
               )}
             </p>
           </div>

@@ -10,7 +10,7 @@ import {
 import type { BusinessProfile, StoreData, UserProfile } from '../types';
 import { money } from '../lib/format';
 import { businessSnapshot } from '../lib/localChat';
-import { useI18n } from '../lib/i18n';
+import { t } from '../lib/language';
 import BusinessTrendChart from '../components/BusinessTrendChart';
 
 export default function Dashboard({
@@ -28,30 +28,58 @@ export default function Dashboard({
   onOpenInventory?: () => void;
   onOpenDebts?: () => void;
 }) {
-  const { tr, locale } = useI18n();
   const snap = businessSnapshot(data);
-  const recent = [...data.sales].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
-  const low = data.products.filter(product => product.stock <= product.reorderLevel).slice(0, 4);
+
+  const recent = [...data.sales]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 5);
+
+  const lowStockProducts = data.products.filter(
+    product => product.stock > 0 && product.stock <= product.reorderLevel
+  );
+
+  const outOfStockProducts = data.products.filter(
+    product => product.stock <= 0
+  );
+
+  const stockAlerts = [...outOfStockProducts, ...lowStockProducts];
+
   const hour = new Date().getHours();
-  const greeting = hour < 12
-    ? tr('greeting.morning')
-    : hour < 17
-      ? tr('greeting.afternoon')
-      : tr('greeting.evening');
-  const salesChange = snap.yesterdayRevenue === 0
-    ? null
-    : ((snap.revenue - snap.yesterdayRevenue) / snap.yesterdayRevenue) * 100;
+
+  const greeting =
+    hour < 12
+      ? t(profile.preferredLanguage, 'greeting.morning')
+      : hour < 17
+        ? t(profile.preferredLanguage, 'greeting.afternoon')
+        : t(profile.preferredLanguage, 'greeting.evening');
+
+  const salesChange =
+    snap.yesterdayRevenue === 0
+      ? null
+      : ((snap.revenue - snap.yesterdayRevenue) /
+          snap.yesterdayRevenue) *
+        100;
 
   return (
     <>
       <header className="page-head dashboard-head">
         <div>
-          <span className="eyebrow">{tr('dashboard.eyebrow')}</span>
-          <h1>{greeting}, {profile.firstName}.</h1>
-          <p>{tr('dashboard.subtitle')} <strong>{business.businessName}</strong>.</p>
+          <span className="eyebrow">
+            {t(profile.preferredLanguage, 'dashboard.eyebrow')}
+          </span>
+
+          <h1>
+            {greeting}, {profile.firstName}.
+          </h1>
+
+          <p>
+            {t(profile.preferredLanguage, 'dashboard.subtitle')}{' '}
+            <strong>{business.businessName}</strong>.
+          </p>
         </div>
+
         <div className="date-chip">
-          {new Intl.DateTimeFormat(locale, {
+          {new Intl.DateTimeFormat('en-NG', {
             weekday: 'short',
             day: 'numeric',
             month: 'short'
@@ -59,75 +87,186 @@ export default function Dashboard({
         </div>
       </header>
 
+      {stockAlerts.length > 0 && (
+        <section className="panel attention-panel">
+          <div className="panel-head">
+            <div>
+              <span className="eyebrow">INVENTORY ALERT</span>
+
+              <h2>
+                {outOfStockProducts.length > 0
+                  ? `${outOfStockProducts.length} product${
+                      outOfStockProducts.length === 1 ? '' : 's'
+                    } out of stock`
+                  : `${lowStockProducts.length} product${
+                      lowStockProducts.length === 1 ? '' : 's'
+                    } running low`}
+              </h2>
+
+              <p>
+                {outOfStockProducts.length > 0
+                  ? 'Some products can no longer be sold until you restock them.'
+                  : 'Some products have reached their reorder level and may need restocking soon.'}
+              </p>
+            </div>
+
+            <CircleAlert size={24} />
+          </div>
+
+          <div className="list">
+            {stockAlerts.slice(0, 5).map(product => {
+              const isOut = product.stock <= 0;
+
+              return (
+                <div className="list-row" key={product.id}>
+                  <div className="list-icon warning">
+                    <CircleAlert size={18} />
+                  </div>
+
+                  <div className="grow">
+                    <strong>{product.name}</strong>
+
+                    <span>
+                      {isOut
+                        ? 'This product is out of stock'
+                        : `Reorder level: ${product.reorderLevel}`}
+                    </span>
+                  </div>
+
+                  <span className="status-badge amber">
+                    {isOut ? 'Out of stock' : `${product.stock} left`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={onOpenInventory}
+          >
+            Open inventory <ArrowRight size={17} />
+          </button>
+        </section>
+      )}
+
       <section className="dashboard-hero">
         <div className="hero-main">
-          <span className="hero-label">{tr("TODAY\'S CASH MOVEMENT")}</span>
+          <span className="hero-label">TODAY&apos;S CASH MOVEMENT</span>
+
           <strong>{money(snap.cashMovement)}</strong>
-          <p>{tr("Recorded sales minus today's recorded expenses.")}</p>
+
+          <p>
+            Recorded sales minus today&apos;s recorded expenses.
+          </p>
+
           <div className="hero-inline-stats">
             <span>
-              <small>{tr('dashboard.sales')}</small>
+              <small>
+                {t(profile.preferredLanguage, 'dashboard.sales')}
+              </small>
               <b>{money(snap.revenue)}</b>
             </span>
+
             <span>
-              <small>{tr('dashboard.expenses')}</small>
+              <small>
+                {t(profile.preferredLanguage, 'dashboard.expenses')}
+              </small>
               <b>{money(snap.expenses)}</b>
             </span>
+
             <span>
-              <small>{tr('Gross profit estimate')}</small>
+              <small>Gross profit estimate</small>
               <b>{money(snap.estimatedGrossProfit)}</b>
             </span>
           </div>
         </div>
+
         <div className="hero-side">
-          <span className="hero-side-label">{tr('Sales vs yesterday')}</span>
+          <span className="hero-side-label">Sales vs yesterday</span>
+
           {salesChange === null ? (
-            <strong className="neutral-change">{tr('No prior-day baseline')}</strong>
+            <strong className="neutral-change">
+              No prior-day baseline
+            </strong>
           ) : (
-            <strong className={salesChange >= 0 ? 'positive-change' : 'negative-change'}>
-              {salesChange >= 0 ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+            <strong
+              className={
+                salesChange >= 0
+                  ? 'positive-change'
+                  : 'negative-change'
+              }
+            >
+              {salesChange >= 0 ? (
+                <TrendingUp size={20} />
+              ) : (
+                <TrendingDown size={20} />
+              )}
+
               {Math.abs(salesChange).toFixed(1)}%
             </strong>
           )}
-          <small>{tr('Yesterday')}: {money(snap.yesterdayRevenue)}</small>
+
+          <small>
+            Yesterday: {money(snap.yesterdayRevenue)}
+          </small>
         </div>
       </section>
 
-      <BusinessTrendChart data={data} language={profile.preferredLanguage} />
+      <BusinessTrendChart
+        data={data}
+        language={profile.preferredLanguage}
+      />
 
       <section className="metric-grid refined">
         <Metric
-          title={tr('Outstanding customer debt')}
+          title="Outstanding customer debt"
           value={money(snap.outstandingCustomerDebt)}
           icon={<HandCoins />}
-          note={tr('{count} open records', { count: data.debts.filter(debt => debt.type === 'customer' && debt.amount > debt.paid).length })}
-          action={tr('Review debts')}
+          note={`${
+            data.debts.filter(
+              debt =>
+                debt.type === 'customer' &&
+                debt.amount > debt.paid
+            ).length
+          } open records`}
+          action="Review debts"
           onClick={onOpenDebts}
         />
+
         <Metric
-          title={tr('Inventory retail value')}
+          title="Inventory retail value"
           value={money(snap.inventoryRetailValue)}
           icon={<Package />}
-          note={tr('{count} products tracked', { count: data.products.length })}
-          action={tr('Open inventory')}
+          note={`${data.products.length} products tracked`}
+          action="Open inventory"
           onClick={onOpenInventory}
         />
+
         <Metric
-          title={tr('Customers')}
+          title="Customers"
           value={String(data.customers.length)}
           icon={<ReceiptText />}
-          note={tr('{count} invoices created', { count: data.invoices.length })}
-          action={tr('Open CRM')}
+          note={`${data.invoices.length} invoice${
+            data.invoices.length === 1 ? '' : 's'
+          } created`}
+          action="Open CRM"
           onClick={onOpenSales}
         />
+
         <Metric
-          title={tr('Low-stock items')}
-          value={String(snap.lowStock.length)}
+          title="Low-stock items"
+          value={String(stockAlerts.length)}
           icon={<CircleAlert />}
-          note={snap.lowStock.length ? tr('Needs your attention') : tr('Stock levels look healthy')}
-          action={tr('Check stock')}
+          note={
+            stockAlerts.length
+              ? 'Needs your attention'
+              : 'Stock levels look healthy'
+          }
+          action="Check stock"
           onClick={onOpenInventory}
-          warning={snap.lowStock.length > 0}
+          warning={stockAlerts.length > 0}
         />
       </section>
 
@@ -135,52 +274,86 @@ export default function Dashboard({
         <article className="panel activity-panel">
           <div className="panel-head">
             <div>
-              <span className="eyebrow">{tr('RECENT ACTIVITY')}</span>
-              <h2>{tr('Latest sales')}</h2>
+              <span className="eyebrow">RECENT ACTIVITY</span>
+              <h2>Latest sales</h2>
             </div>
-            <button className="panel-link" onClick={onOpenSales}>{tr('View all')} <ArrowRight size={16} /></button>
+
+            <button
+              className="panel-link"
+              onClick={onOpenSales}
+            >
+              View all <ArrowRight size={16} />
+            </button>
           </div>
+
           {recent.length ? (
             <div className="list">
               {recent.map(sale => (
                 <div className="list-row" key={sale.id}>
-                  <div className="list-icon"><ReceiptText size={18} /></div>
+                  <div className="list-icon">
+                    <ReceiptText size={18} />
+                  </div>
+
                   <div className="grow">
                     <strong>{sale.itemName}</strong>
-                    <span>{tr('{count} items', { count: sale.quantity })} • {sale.paymentMethod}</span>
+
+                    <span>
+                      {sale.quantity} item
+                      {sale.quantity === 1 ? '' : 's'} •{' '}
+                      {sale.paymentMethod}
+                    </span>
                   </div>
+
                   <strong>{money(sale.total)}</strong>
                 </div>
               ))}
             </div>
           ) : (
-            <Empty text={tr('Your first recorded sale will appear here.')} />
+            <Empty text="Your first recorded sale will appear here." />
           )}
         </article>
 
         <article className="panel attention-panel">
           <div className="panel-head">
             <div>
-              <span className="eyebrow">{tr('ATTENTION')}</span>
-              <h2>{tr('Stock watch')}</h2>
+              <span className="eyebrow">ATTENTION</span>
+              <h2>Stock watch</h2>
             </div>
-            <button className="panel-link" onClick={onOpenInventory}>{tr('Inventory')} <ArrowRight size={16} /></button>
+
+            <button
+              className="panel-link"
+              onClick={onOpenInventory}
+            >
+              Inventory <ArrowRight size={16} />
+            </button>
           </div>
-          {low.length ? (
+
+          {stockAlerts.length ? (
             <div className="list">
-              {low.map(product => (
+              {stockAlerts.slice(0, 4).map(product => (
                 <div className="list-row" key={product.id}>
-                  <div className="list-icon warning"><CircleAlert size={18} /></div>
+                  <div className="list-icon warning">
+                    <CircleAlert size={18} />
+                  </div>
+
                   <div className="grow">
                     <strong>{product.name}</strong>
-                    <span>{tr('Reorder at {level}', { level: product.reorderLevel })}</span>
+
+                    <span>
+                      Reorder at {product.reorderLevel}
+                    </span>
                   </div>
-                  <span className="status-badge amber">{tr('{count} left', { count: product.stock })}</span>
+
+                  <span className="status-badge amber">
+                    {product.stock <= 0
+                      ? 'Out of stock'
+                      : `${product.stock} left`}
+                  </span>
                 </div>
               ))}
             </div>
           ) : (
-            <Empty text={tr('No product is currently at its reorder level.')} />
+            <Empty text="No product is currently at its reorder level." />
           )}
         </article>
       </section>
@@ -206,14 +379,25 @@ function Metric({
   warning?: boolean;
 }) {
   return (
-    <article className={`metric-card refined-card ${warning ? 'warning-card' : ''}`}>
+    <article
+      className={`metric-card refined-card ${
+        warning ? 'warning-card' : ''
+      }`}
+    >
       <div className="metric-top">
         <span>{title}</span>
         <div className="metric-icon">{icon}</div>
       </div>
+
       <strong className="metric-value">{value}</strong>
+
       <small>{note}</small>
-      <button className="metric-action" onClick={onClick} disabled={!onClick}>
+
+      <button
+        className="metric-action"
+        onClick={onClick}
+        disabled={!onClick}
+      >
         {action} <ArrowRight size={14} />
       </button>
     </article>

@@ -1,26 +1,64 @@
 from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
-Language = Literal["en", "pcm", "yo", "ha", "ig"]
+
+Language = Literal[
+    "en",
+    "pcm",
+    "yo",
+    "ha",
+    "ig",
+]
 
 
 class RegistrationStart(BaseModel):
     phone: str
-    firstName: str = Field(min_length=1, max_length=80)
-    lastName: str = Field(min_length=1, max_length=80)
+
+    firstName: str = Field(
+        min_length=1,
+        max_length=80,
+    )
+
+    lastName: str = Field(
+        min_length=1,
+        max_length=80,
+    )
+
     otherName: str = ""
-    password: str = Field(min_length=8, max_length=200)
+
+    password: str = Field(
+        min_length=8,
+        max_length=200,
+    )
+
     preferredLanguage: Language = "en"
 
 
 class OtpVerify(BaseModel):
     challengeId: str
-    code: str = Field(min_length=4, max_length=8)
+
+    code: str = Field(
+        min_length=4,
+        max_length=8,
+    )
 
 
 class LoginRequest(BaseModel):
-    phone: str
-    password: str
+    # Phone remains supported so an
+    # older deployed frontend can still
+    # log in during deployment.
+    identifier: str | None = None
+    phone: str | None = None
+
+    password: str = Field(
+        min_length=1,
+        max_length=200,
+    )
+
+    @property
+    def login_identifier(self) -> str:
+        return (self.identifier or self.phone or "").strip()
 
 
 class ForgotStart(BaseModel):
@@ -29,17 +67,33 @@ class ForgotStart(BaseModel):
 
 class ForgotVerify(BaseModel):
     challengeId: str
-    code: str = Field(min_length=4, max_length=8)
-    newPassword: str = Field(min_length=8, max_length=200)
+
+    code: str = Field(
+        min_length=4,
+        max_length=8,
+    )
+
+    newPassword: str = Field(
+        min_length=8,
+        max_length=200,
+    )
 
 
 class ProfilePayload(BaseModel):
     uid: str
+
+    # Default keeps older app versions
+    # compatible during rollout.
+    ojaTag: str = ""
+
     phoneNumber: str
     firstName: str
     lastName: str
+
     otherName: str | None = ""
+
     preferredLanguage: Language = "en"
+
     onboardingCompleted: bool = False
     businessProfileCompleted: bool = False
 
@@ -54,6 +108,7 @@ class BusinessPayload(BaseModel):
 
 class SaveProfileRequest(BaseModel):
     profile: ProfilePayload
+
     business: BusinessPayload | None = None
 
 
@@ -63,12 +118,20 @@ class VerifyPasswordRequest(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     currentPassword: str
-    newPassword: str = Field(min_length=8, max_length=200)
+
+    newPassword: str = Field(
+        min_length=8,
+        max_length=200,
+    )
 
 
 class DeleteAccountRequest(BaseModel):
     password: str
-    confirmation: str = Field(min_length=1, max_length=80)
+
+    confirmation: str = Field(
+        min_length=1,
+        max_length=80,
+    )
 
 
 class StorePayload(BaseModel):
@@ -77,14 +140,32 @@ class StorePayload(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=2000)
+    message: str = Field(
+        min_length=1,
+        max_length=2000,
+    )
+
     context: dict[str, Any] = Field(default_factory=dict)
+
     business: dict[str, Any] = Field(default_factory=dict)
+
     history: list[dict[str, str]] = Field(default_factory=list)
+
     preferredLanguage: Language = "en"
 
 
 class SupportRequest(BaseModel):
-    category: str = Field(min_length=1, max_length=80)
-    subject: str = Field(min_length=2, max_length=180)
-    message: str = Field(min_length=5, max_length=5000)
+    category: str = Field(
+        min_length=1,
+        max_length=80,
+    )
+
+    subject: str = Field(
+        min_length=2,
+        max_length=180,
+    )
+
+    message: str = Field(
+        min_length=5,
+        max_length=5000,
+    )

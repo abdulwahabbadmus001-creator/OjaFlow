@@ -1,4 +1,6 @@
-﻿import { useState } from 'react';
+﻿import {
+  useState
+} from 'react';
 
 import {
   CircleUserRound,
@@ -22,49 +24,65 @@ import type {
   UserProfile
 } from '../types';
 
-import type { ReactNode } from 'react';
+import type {
+  ReactNode
+} from 'react';
 
-import { useI18n } from '../lib/i18n';
+import {
+  useI18n
+} from '../lib/i18n';
 
-import MaintenanceBanner from './MaintenanceBanner';
-import BrandLogo from './BrandLogo';
+import MaintenanceBanner
+  from './MaintenanceBanner';
+
+import BrandLogo
+  from './BrandLogo';
+
 
 const nav: Array<{
   id: AppSection;
+
   key:
     | 'nav.home'
     | 'nav.sales'
     | 'nav.inventory'
     | 'nav.debts'
     | 'nav.settings';
+
   icon: typeof Home;
 }> = [
+
   {
     id: 'home',
     key: 'nav.home',
     icon: Home
   },
+
   {
     id: 'sales',
     key: 'nav.sales',
     icon: ReceiptText
   },
+
   {
     id: 'inventory',
     key: 'nav.inventory',
     icon: Package
   },
+
   {
     id: 'debts',
     key: 'nav.debts',
     icon: HandCoins
   },
+
   {
     id: 'more',
     key: 'nav.settings',
     icon: Settings
   }
 ];
+
 
 export default function AppShell({
   section,
@@ -77,198 +95,480 @@ export default function AppShell({
   syncStatus
 }: {
   section: AppSection;
-  setSection: (section: AppSection) => void;
-  profile: UserProfile;
-  business: BusinessProfile;
-  children: ReactNode;
-  onQuick: () => void;
-  onChat: () => void;
-  syncStatus: SyncStatus;
+
+  setSection:
+    (
+      section:
+        AppSection
+    ) => void;
+
+  profile:
+    UserProfile;
+
+  business:
+    BusinessProfile;
+
+  children:
+    ReactNode;
+
+  onQuick:
+    () => void;
+
+  onChat:
+    () => void;
+
+  syncStatus:
+    SyncStatus;
 }) {
-  const { tr } = useI18n();
-  const [menuOpen, setMenuOpen] = useState(false);
+
+  const {
+    tr
+  } = useI18n();
+
+
+  const [
+    menuOpen,
+    setMenuOpen
+  ] =
+    useState(false);
+
 
   const initials =
-    `${profile.firstName?.[0] || ''}${profile.lastName?.[0] || ''}`.toUpperCase();
+    `${
+      profile.firstName?.[0]
+      || ''
+    }${
+      profile.lastName?.[0]
+      || ''
+    }`
+      .toUpperCase();
+
 
   const online =
-    syncStatus !== 'offline' &&
-    syncStatus !== 'error';
+    syncStatus !== 'offline'
+    && syncStatus !== 'error';
+
 
   const statusLabel =
     syncStatus === 'syncing'
-      ? tr('Syncing')
-      : syncStatus === 'synced'
-        ? tr('Synced')
-        : syncStatus === 'offline'
-          ? tr('Offline')
-          : syncStatus === 'error'
-            ? tr('Sync issue')
-            : tr('Ready');
 
-  function navigate(target: AppSection) {
-    setSection(target);
-    setMenuOpen(false);
+      ? tr(
+          'Syncing'
+        )
+
+      : syncStatus === 'synced'
+
+        ? tr(
+            'Synced'
+          )
+
+        : syncStatus === 'offline'
+
+          ? tr(
+              'Offline'
+            )
+
+          : syncStatus === 'error'
+
+            ? tr(
+                'Sync issue'
+              )
+
+            : tr(
+                'Ready'
+              );
+
+
+  function navigate(
+    target: AppSection
+  ) {
+
+    setSection(
+      target
+    );
+
+    setMenuOpen(
+      false
+    );
   }
+
 
   return (
     <div className="premium-shell">
+
       <header className="premium-topbar">
+
         <div className="topbar-inner">
+
           <BrandLogo
             compact
-            subtitle={business.businessName}
+            subtitle={
+              business
+                .businessName
+            }
           />
+
 
           <nav
             className="desktop-top-nav"
-            aria-label={tr('Primary navigation')}
+            aria-label={
+              tr(
+                'Primary navigation'
+              )
+            }
           >
-            {nav.map(item => {
-              const Icon = item.icon;
 
-              return (
-                <button
-                  key={item.id}
-                  className={
-                    section === item.id
-                      ? 'top-nav-item active'
-                      : 'top-nav-item'
-                  }
-                  onClick={() =>
-                    navigate(item.id)
-                  }
-                >
-                  <Icon size={17} />
-                  <span>{tr(item.key)}</span>
-                </button>
-              );
-            })}
+            {
+              nav.map(
+                item => {
+
+                  const Icon =
+                    item.icon;
+
+
+                  return (
+                    <button
+                      key={
+                        item.id
+                      }
+                      className={
+                        section
+                          === item.id
+                          ? 'top-nav-item active'
+                          : 'top-nav-item'
+                      }
+                      onClick={
+                        () =>
+                          navigate(
+                            item.id
+                          )
+                      }
+                    >
+
+                      <Icon
+                        size={17}
+                      />
+
+                      <span>
+                        {
+                          tr(
+                            item.key
+                          )
+                        }
+                      </span>
+
+                    </button>
+                  );
+                }
+              )
+            }
+
           </nav>
 
-          <div className="topbar-actions">
-            <div
-              className={`topbar-sync ${syncStatus}`}
-              title={statusLabel}
-            >
-              {online ? (
-                <Wifi size={15} />
-              ) : (
-                <WifiOff size={15} />
-              )}
 
-              <span>{statusLabel}</span>
+          <div className="topbar-actions">
+
+            <div
+              className={
+                `topbar-sync ${
+                  syncStatus
+                }`
+              }
+              title={
+                statusLabel
+              }
+            >
+
+              {
+                online
+                  ? (
+                    <Wifi
+                      size={15}
+                    />
+                  )
+                  : (
+                    <WifiOff
+                      size={15}
+                    />
+                  )
+              }
+
+
+              <span>
+                {
+                  statusLabel
+                }
+              </span>
+
             </div>
 
-            <div className="topbar-user">
+
+            <div
+              className="topbar-user"
+              title={
+                `OjaTag: ${
+                  profile.ojaTag
+                }`
+              }
+            >
+
               <div className="avatar">
-                {initials || (
-                  <CircleUserRound size={18} />
-                )}
+
+                {
+                  initials
+                  || (
+                    <CircleUserRound
+                      size={18}
+                    />
+                  )
+                }
+
               </div>
+
 
               <div>
+
                 <strong>
-                  {profile.firstName}{' '}
-                  {profile.lastName}
+
+                  {
+                    profile
+                      .firstName
+                  }{' '}
+
+                  {
+                    profile
+                      .lastName
+                  }
+
                 </strong>
 
+
                 <small>
-                  {tr('Business owner')}
+
+                  {
+                    profile.ojaTag
+                    || tr(
+                        'Business owner'
+                      )
+                  }
+
                 </small>
+
               </div>
+
             </div>
+
 
             <button
               type="button"
               className="mobile-menu-trigger"
-              onClick={() =>
-                setMenuOpen(value => !value)
+              onClick={
+                () =>
+                  setMenuOpen(
+                    value =>
+                      !value
+                  )
               }
               aria-label={
                 menuOpen
                   ? 'Close navigation'
                   : 'Open navigation'
               }
-              aria-expanded={menuOpen}
+              aria-expanded={
+                menuOpen
+              }
             >
-              {menuOpen ? (
-                <X size={22} />
-              ) : (
-                <Menu size={22} />
-              )}
+
+              {
+                menuOpen
+                  ? (
+                    <X
+                      size={22}
+                    />
+                  )
+                  : (
+                    <Menu
+                      size={22}
+                    />
+                  )
+              }
+
             </button>
+
           </div>
+
         </div>
+
       </header>
 
-      {menuOpen && (
-        <div className="mobile-nav-panel">
-          <div className="mobile-nav-business">
-            <span>
-              {tr('CURRENT BUSINESS')}
-            </span>
 
-            <strong>
-              {business.businessName}
-            </strong>
+      {
+        menuOpen && (
+          <div className="mobile-nav-panel">
 
-            <small>
-              {tr(business.category)}
-            </small>
+            <div className="mobile-nav-business">
+
+              <span>
+                {
+                  tr(
+                    'CURRENT BUSINESS'
+                  )
+                }
+              </span>
+
+
+              <strong>
+                {
+                  business
+                    .businessName
+                }
+              </strong>
+
+
+              <small>
+                {
+                  tr(
+                    business.category
+                  )
+                }
+              </small>
+
+
+              {
+                profile.ojaTag
+                && (
+                  <small className="mobile-ojatag">
+                    OjaTag:{' '}
+                    {
+                      profile.ojaTag
+                    }
+                  </small>
+                )
+              }
+
+            </div>
+
+
+            <nav
+              aria-label={
+                tr(
+                  'Primary navigation'
+                )
+              }
+            >
+
+              {
+                nav.map(
+                  item => {
+
+                    const Icon =
+                      item.icon;
+
+
+                    return (
+                      <button
+                        key={
+                          item.id
+                        }
+                        className={
+                          section
+                            === item.id
+
+                            ? 'mobile-nav-item active'
+
+                            : 'mobile-nav-item'
+                        }
+                        onClick={
+                          () =>
+                            navigate(
+                              item.id
+                            )
+                        }
+                      >
+
+                        <Icon
+                          size={19}
+                        />
+
+
+                        <span>
+                          {
+                            tr(
+                              item.key
+                            )
+                          }
+                        </span>
+
+                      </button>
+                    );
+                  }
+                )
+              }
+
+            </nav>
+
           </div>
+        )
+      }
 
-          <nav aria-label={tr('Primary navigation')}>
-            {nav.map(item => {
-              const Icon = item.icon;
-
-              return (
-                <button
-                  key={item.id}
-                  className={
-                    section === item.id
-                      ? 'mobile-nav-item active'
-                      : 'mobile-nav-item'
-                  }
-                  onClick={() =>
-                    navigate(item.id)
-                  }
-                >
-                  <Icon size={19} />
-                  <span>{tr(item.key)}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-      )}
 
       <main className="premium-main">
+
         <MaintenanceBanner />
+
 
         <div className="content">
           {children}
         </div>
 
+
         <div className="floating-actions">
+
           <button
             className="chat-fab"
-            onClick={onChat}
-            aria-label={tr('Open OjaChat')}
+            onClick={
+              onChat
+            }
+            aria-label={
+              tr(
+                'Open OjaChat'
+              )
+            }
           >
-            <MessageCircleMore size={20} />
-            <span>OjaChat</span>
+
+            <MessageCircleMore
+              size={20}
+            />
+
+            <span>
+              OjaChat
+            </span>
+
           </button>
+
 
           <button
             className="quick-fab"
-            onClick={onQuick}
-            aria-label={tr('Quick action')}
+            onClick={
+              onQuick
+            }
+            aria-label={
+              tr(
+                'Quick action'
+              )
+            }
           >
-            <Plus size={24} />
+
+            <Plus
+              size={24}
+            />
+
           </button>
+
         </div>
+
       </main>
+
     </div>
   );
 }

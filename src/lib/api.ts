@@ -1,12 +1,21 @@
-import type { BusinessProfile, StoreData, UserProfile } from '../types';
+import type {
+  BusinessProfile,
+  StoreData,
+  UserProfile
+} from '../types';
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+const API_BASE = (
+  import.meta.env.VITE_API_BASE_URL || '/api'
+).replace(/\/$/, '');
+
 const CSRF_KEY = 'ojaflow:csrf';
 
-let csrfToken = sessionStorage.getItem(CSRF_KEY) || '';
+let csrfToken =
+  sessionStorage.getItem(CSRF_KEY) || '';
 
 function rememberCsrf(value?: string) {
   if (!value) return;
+
   csrfToken = value;
   sessionStorage.setItem(CSRF_KEY, value);
 }
@@ -45,11 +54,21 @@ async function request<T>(
     );
   }
 
-  const data = await response.json().catch(() => ({}));
+  const data = await response
+    .json()
+    .catch(() => ({}));
 
   if (!response.ok) {
-    const message = data.detail || data.error || 'Request failed.';
-    throw new Error(typeof message === 'string' ? message : 'Request failed.');
+    const message =
+      data.detail ||
+      data.error ||
+      'Request failed.';
+
+    throw new Error(
+      typeof message === 'string'
+        ? message
+        : 'Request failed.'
+    );
   }
 
   if (data.csrfToken) {
@@ -66,15 +85,26 @@ export type AuthResult = {
 };
 
 export const api = {
-  health: () => request<{ ok: boolean }>('/health'),
+  health: () =>
+    request<{ ok: boolean }>('/health'),
 
-  session: () => request<AuthResult>('/auth/session'),
+  session: () =>
+    request<AuthResult>('/auth/session'),
 
-  loginPassword: (phone: string, password: string) =>
-    request<AuthResult>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ phone, password })
-    }),
+  loginPassword: (
+    identifier: string,
+    password: string
+  ) =>
+    request<AuthResult>(
+      '/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          phone: identifier,
+          password
+        })
+      }
+    ),
 
   logout: async () => {
     const result = await request<{ ok: boolean }>(
@@ -87,80 +117,222 @@ export const api = {
     );
 
     clearCsrf();
+
     return result;
   },
 
-  register: (payload: {
+
+  registerStart: async (payload: {
     phone: string;
     firstName: string;
     lastName: string;
     otherName?: string;
     password: string;
     preferredLanguage: string;
-  }) =>
-    request<AuthResult>('/auth/register', {
+  }) => {
+    const result = await request<{
+      challengeId?: string;
+      challenge_id?: string;
+      phone?: string;
+      expiresIn?: number;
+      expiresInSeconds?: number;
+      message?: string;
+    }>('/auth/register/request-otp', {
       method: 'POST',
       body: JSON.stringify(payload)
-    }),
+    });
 
-  verifyPassword: (password: string) =>
+    const challengeId =
+      result.challengeId ?? result.challenge_id;
+
+    if (!challengeId) {
+      throw new Error(
+        result.message ||
+          'The server did not return a verification challenge.'
+      );
+    }
+
+    return {
+      challengeId,
+      phone: result.phone || payload.phone,
+      expiresIn:
+        result.expiresIn ?? result.expiresInSeconds
+    };
+  },
+
+  registerVerify: (
+    challengeId: string,
+    code: string
+  ) =>
+    request<AuthResult>(
+      '/auth/register/verify',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          challengeId,
+          code
+        })
+      }
+    ),
+
+  forgotStart: (
+    phone: string
+  ) =>
+    request<{
+      challengeId: string;
+      phone: string;
+    }>(
+      '/auth/forgot/request-otp',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          phone
+        })
+      }
+    ),
+
+  forgotVerify: (
+    challengeId: string,
+    code: string,
+    newPassword: string
+  ) =>
+    request<{ ok: boolean }>(
+      '/auth/forgot/verify',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          challengeId,
+          code,
+          newPassword
+        })
+      }
+    ),
+
+  verifyPassword: (
+    password: string
+  ) =>
     request<{ ok: boolean }>(
       '/account/verify-password',
       {
         method: 'POST',
-        body: JSON.stringify({ password })
+        body: JSON.stringify({
+          password
+        })
       },
       true
     ),
 
-  saveProfile: (profile: UserProfile, business?: BusinessProfile) =>
-    request<{ profile: UserProfile; business: BusinessProfile | null }>(
+  saveProfile: (
+    profile: UserProfile,
+    business?: BusinessProfile
+  ) =>
+    request<{
+      profile: UserProfile;
+      business: BusinessProfile | null;
+    }>(
       '/account/profile',
       {
         method: 'PUT',
-        body: JSON.stringify({ profile, business })
+        body: JSON.stringify({
+          profile,
+          business
+        })
       },
       true
     ),
 
-  changePassword: (currentPassword: string, newPassword: string) =>
+  changePassword: (
+    currentPassword: string,
+    newPassword: string
+  ) =>
     request<{ ok: boolean }>(
       '/account/change-password',
       {
         method: 'POST',
-        body: JSON.stringify({ currentPassword, newPassword })
+        body: JSON.stringify({
+          currentPassword,
+          newPassword
+        })
+      },
+      true
+    ),
+
+  requestDeleteOtp: (
+    password: string
+  ) =>
+    request<{ challengeId: string }>(
+      '/account/delete/request-otp',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          password
+        })
+      },
+      true
+    ),
+
+  verifyDeleteOtp: (
+    challengeId: string,
+    code: string
+  ) =>
+    request<{ deletionToken: string }>(
+      '/account/delete/verify-otp',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          challengeId,
+          code
+        })
       },
       true
     ),
 
   deleteAccount: async (
-    password: string,
-    confirmation: string
+    deletionToken: string,
+    confirmation?: string
   ) => {
     const result = await request<{ ok: boolean }>(
-      '/account/delete',
+      '/account/delete/confirm',
       {
         method: 'POST',
-        body: JSON.stringify({ password, confirmation })
+        body: JSON.stringify({
+          deletionToken,
+          ...(confirmation
+            ? { confirmation }
+            : {})
+        })
       },
       true
     );
 
     clearCsrf();
+
     return result;
   },
 
   loadStore: () =>
-    request<{ data: StoreData; version: number; updatedAt?: string }>(
-      '/store'
-    ),
+    request<{
+      data: StoreData;
+      version: number;
+      updatedAt?: string;
+    }>('/store'),
 
-  saveStore: (data: StoreData, version: number) =>
-    request<{ data: StoreData; version: number; updatedAt?: string }>(
+  saveStore: (
+    data: StoreData,
+    version: number
+  ) =>
+    request<{
+      data: StoreData;
+      version: number;
+      updatedAt?: string;
+    }>(
       '/store',
       {
         method: 'PUT',
-        body: JSON.stringify({ data, version })
+        body: JSON.stringify({
+          data,
+          version
+        })
       },
       true
     ),
@@ -169,10 +341,16 @@ export const api = {
     message: string,
     context: unknown,
     business: unknown,
-    history: Array<{ role: 'user' | 'assistant'; text: string }>,
-    preferredLanguage: string
+    history: Array<{
+      role: 'user' | 'assistant';
+      text: string;
+    }>,
+    language?: string
   ) =>
-    request<{ reply: string }>(
+    request<{
+      reply?: string;
+      text?: string;
+    }>(
       '/chat',
       {
         method: 'POST',
@@ -181,7 +359,9 @@ export const api = {
           context,
           business,
           history,
-          preferredLanguage
+          ...(language
+            ? { language }
+            : {})
         })
       },
       true
@@ -192,7 +372,10 @@ export const api = {
     subject: string,
     message: string
   ) =>
-    request<{ ok: boolean; ticketId: string }>(
+    request<{
+      ok: boolean;
+      ticketId: string;
+    }>(
       '/support/ticket',
       {
         method: 'POST',

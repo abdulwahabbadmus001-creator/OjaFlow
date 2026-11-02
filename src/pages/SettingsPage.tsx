@@ -52,10 +52,10 @@ type Screen =
   | 'export'
   | 'help'
   | 'about'
-  | 'privacy'
-  | 'terms'
   | 'logout'
   | 'delete';
+
+type LegalPage = 'terms' | 'privacy' | 'faq';
 
 export default function SettingsPage({
   uid,
@@ -70,7 +70,8 @@ export default function SettingsPage({
   setTheme,
   syncStatus,
   lastSync,
-  onSyncNow
+  onSyncNow,
+  setLegalPage
 }: {
   uid: string;
   profile: UserProfile;
@@ -85,6 +86,7 @@ export default function SettingsPage({
   syncStatus: SyncStatus;
   lastSync: string | null;
   onSyncNow: () => Promise<void>;
+  setLegalPage: (page: LegalPage) => void;
 }) {
   const [screen, setScreen] = useState<Screen>('root');
   const { tr } = useI18n();
@@ -118,16 +120,10 @@ export default function SettingsPage({
     return <ExportScreen profile={profile} business={business} data={data} onBack={back} />;
   }
   if (screen === 'help') {
-    return <HelpScreen onBack={back} />;
+    return <HelpScreen onBack={back} onOpenFaq={() => setLegalPage('faq')} />;
   }
   if (screen === 'about') {
     return <AboutScreen onBack={back} />;
-  }
-  if (screen === 'privacy') {
-    return <PrivacyScreen onBack={back} />;
-  }
-  if (screen === 'terms') {
-    return <TermsScreen onBack={back} />;
   }
   if (screen === 'logout') {
     return <LogoutScreen onBack={back} onLogout={onLogout} />;
@@ -142,7 +138,7 @@ export default function SettingsPage({
         <div>
           <span className="eyebrow">{tr('CONTROL CENTRE')}</span>
           <h1>{tr('Settings')}</h1>
-          <p>{tr('Account, security, data and preferences â€” without exposing private details here.')}</p>
+          <p>{tr('Manage your account, business records and preferences.')}</p>
         </div>
       </header>
 
@@ -161,14 +157,15 @@ export default function SettingsPage({
 
         <SettingsGroup title={tr('Data')}>
           <Row icon={<Cloud />} title={tr('Backup & Sync')} sub={syncSubtitle(syncStatus, tr)} onClick={() => setScreen('sync')} />
-          <Row icon={<Download />} title={tr('Export My Data')} sub={tr('JSON, CSV and business summary')} onClick={() => setScreen('export')} />
+          <Row icon={<Download />} title={tr('Export My Data')} sub={tr('Download a backup, spreadsheets or a business summary')} onClick={() => setScreen('export')} />
         </SettingsGroup>
 
         <SettingsGroup title={tr('Support & Legal')}>
           <Row icon={<CircleHelp />} title={tr('Help & Support')} sub={tr('FAQs and support ticket')} onClick={() => setScreen('help')} />
+          <Row icon={<CircleHelp />} title={tr('Help & FAQs')} onClick={() => setLegalPage('faq')} />
           <Row icon={<Info />} title={tr('About OjaFlow')} sub={tr('What OjaFlow is built to do')} onClick={() => setScreen('about')} />
-          <Row icon={<FileText />} title={tr('Privacy Policy')} onClick={() => setScreen('privacy')} />
-          <Row icon={<FileText />} title={tr('Terms of Use')} onClick={() => setScreen('terms')} />
+          <Row icon={<FileText />} title={tr('Privacy Policy')} onClick={() => setLegalPage('privacy')} />
+          <Row icon={<FileText />} title={tr('Terms and Conditions')} onClick={() => setLegalPage('terms')} />
         </SettingsGroup>
 
         <SettingsGroup title={tr('Session')}>
@@ -185,10 +182,10 @@ export default function SettingsPage({
 
 function syncSubtitle(status: SyncStatus, tr: (key: string) => string) {
   if (status === 'syncing') return tr('Syncing your latest changes');
-  if (status === 'synced') return tr('Your cloud data is up to date');
+  if (status === 'synced') return tr('Your latest records are saved to your account');
   if (status === 'offline') return tr('Offline â€” changes remain available locally');
   if (status === 'error') return tr('A sync issue needs attention');
-  return tr('Real-time cloud backup');
+  return tr('Your records are saved to your account when connected');
 }
 
 function SettingsGroup({ title, children, danger }: { title: string; children: React.ReactNode; danger?: boolean }) {
@@ -664,7 +661,7 @@ function SyncScreen({ syncStatus, lastSync, onSyncNow, onBack }: {
   }
 
   return (
-    <SimpleScreen title={tr('Backup & Sync')} subtitle={tr('OjaFlow keeps a local copy and synchronizes signed-in business records with your cloud backend.')} onBack={onBack}>
+    <SimpleScreen title={tr('Backup & Sync')} subtitle={tr('OjaFlow keeps a copy on this device and updates your account when an internet connection is available.')} onBack={onBack}>
       <div className={`sync-status-card ${syncStatus}`}>
         <div className="sync-orb"><Cloud /></div>
         <div>
@@ -697,11 +694,11 @@ function ExportScreen({ profile, business, data, onBack }: {
       <div className="export-grid">
         <button className="export-card" onClick={() => exportAllAsJson(profile, business, data)}>
           <Download />
-          <div><strong>{tr('Full JSON backup')}</strong><span>{tr('Best for restoring, migration or technical backup.')}</span></div>
+          <div><strong>{tr('Full data backup')}</strong><span>{tr('Keep a complete copy of your business records.')}</span></div>
         </button>
         <button className="export-card" onClick={() => exportAllAsCsv(data)}>
           <FileText />
-          <div><strong>{tr('CSV spreadsheets')}</strong><span>{tr('Downloads sales, expenses, inventory, debts and customers.')}</span></div>
+          <div><strong>{tr('Spreadsheets')}</strong><span>{tr('Download your sales, expenses, stock, debts and customer records in spreadsheet files.')}</span></div>
         </button>
         <button className="export-card" onClick={() => exportSummary(business, data, profile.preferredLanguage)}>
           <FileText />
@@ -713,46 +710,91 @@ function ExportScreen({ profile, business, data, onBack }: {
   );
 }
 
-function HelpScreen({ onBack }: { onBack: () => void }) {
+function HelpScreen({
+  onBack,
+  onOpenFaq
+}: {
+  onBack: () => void;
+  onOpenFaq: () => void;
+}) {
   const { tr } = useI18n();
-  const [status, setStatus] = useState('');
-  const faqs = [
-    ['Why is my sale not showing on another device?', 'Check Backup & Sync and confirm both devices are signed into the same OjaFlow account.'],
-    ['Can I use OjaFlow when internet is poor?', 'Yes. OjaFlow keeps local records and automatically synchronizes them with the OjaFlow backend when connectivity returns.'],
-    ['Why does OjaChat sometimes need internet?', 'Questions calculated directly from your records work locally. Broader business advice is generated by the online OjaChat adviser.'],
-    ['How do I keep a copy of my records?', 'Open Settings â†’ Export My Data and download JSON or CSV files.']
-  ];
+  const [status, setStatus] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
+  const [sending, setSending] = useState(false);
+
+  async function submitTicket(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    setSending(true);
+    setStatus(null);
+
+    try {
+      const ticket = await api.supportTicket(
+        String(form.get('category') || 'General'),
+        String(form.get('subject') || '').trim(),
+        String(form.get('message') || '').trim()
+      );
+      formElement.reset();
+      setStatus({
+        kind: 'success',
+        message: `${tr('Your request was saved. Reference number:')} ${ticket.ticketId}`
+      });
+    } catch (e) {
+      setStatus({
+        kind: 'error',
+        message: e instanceof Error ? e.message : tr('Could not submit support request.')
+      });
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
-    <SimpleScreen title={tr('Help & Support')} subtitle={tr('Find an answer or send a support ticket from inside OjaFlow.')} onBack={onBack}>
-      <div className="faq-list">
-        {faqs.map(([question, answer]) => <details key={question}><summary>{tr(question)}</summary><p>{tr(answer)}</p></details>)}
+    <SimpleScreen title={tr('Help & Support')} subtitle={tr('Get help with your account and business records.')} onBack={onBack}>
+      <div className="support-help-card">
+        <div>
+          <strong>{tr('Browse help topics')}</strong>
+          <p>{tr('Find guidance about accounts, sales, stock, privacy and more.')}</p>
+        </div>
+        <button type="button" className="secondary-btn" onClick={onOpenFaq}>
+          {tr('View Help & FAQs')}
+        </button>
       </div>
+
       <div className="support-form-wrap">
-        <h3>{tr('Still need help?')}</h3>
-        <form className="form-stack" onSubmit={event => {
-          event.preventDefault();
-          void (async () => {
-            const form = new FormData(event.currentTarget);
-            setStatus(tr('Sendingâ€¦'));
-            try {
-              await api.supportTicket(
-                String(form.get('category') || 'General'),
-                String(form.get('subject') || '').trim(),
-                String(form.get('message') || '').trim()
-              );
-              event.currentTarget.reset();
-              setStatus(tr('Support ticket submitted successfully.'));
-            } catch (e) {
-              setStatus(e instanceof Error ? e.message : tr('Could not submit support ticket.'));
-            }
-          })();
-        }}>
-          <label>{tr('Category')}<select name="category"><option>Account & Login</option><option>Sales & Records</option><option>Sync & Backup</option><option>OjaChat</option><option>General</option></select></label>
-          <label>{tr('Subject')}<input name="subject" required /></label>
-          <label>{tr('What happened?')}<textarea name="message" rows={5} required /></label>
-          {status && <div className="inline-status">{status}</div>}
-          <button className="primary-btn">{tr('Submit support ticket')}</button>
+        <h3>{tr('Send a support request')}</h3>
+        <p className="muted">
+          {tr('Your request is saved with your account. The app will show a reference number after submission, but does not currently display replies or ticket progress.')}
+        </p>
+        <form className="form-stack" onSubmit={event => void submitTicket(event)}>
+          <label>
+            {tr('What do you need help with?')}
+            <select name="category" defaultValue="General">
+              <option value="Account access">{tr('Account access')}</option>
+              <option value="Sales and expenses">{tr('Sales and expenses')}</option>
+              <option value="Products and stock">{tr('Products and stock')}</option>
+              <option value="Customers and debts">{tr('Customers and debts')}</option>
+              <option value="Data and syncing">{tr('Data and syncing')}</option>
+              <option value="General">{tr('Something else')}</option>
+            </select>
+          </label>
+          <label>
+            {tr('Subject')}
+            <input name="subject" minLength={2} maxLength={180} required />
+          </label>
+          <label>
+            {tr('Describe the issue')}
+            <textarea name="message" rows={5} minLength={5} maxLength={5000} required />
+            <span className="field-help">{tr('Do not include your password or verification code.')}</span>
+          </label>
+          {status && (
+            <div className={status.kind === 'error' ? 'form-error' : 'inline-status'} role="status">
+              {status.message}
+            </div>
+          )}
+          <button className="primary-btn" disabled={sending}>
+            {sending ? tr('Sending request…') : tr('Submit support request')}
+          </button>
         </form>
       </div>
     </SimpleScreen>
@@ -774,49 +816,9 @@ function AboutScreen({ onBack }: { onBack: () => void }) {
       <p className="legal-copy">{tr('OjaFlow is designed to help small traders understand and manage sales, stock, expenses, customers and credit without requiring complex accounting software.')}</p>
       <div className="about-values">
         <div><strong>{tr('Simple by design')}</strong><span>{tr('Everyday business language instead of accounting jargon.')}</span></div>
-        <div><strong>{tr('Local-first')}</strong><span>{tr('Fast record keeping with cloud synchronization for signed-in users.')}</span></div>
-        <div><strong>{tr('Trader-aware AI')}</strong><span>{tr('OjaChat combines your store context with broader practical business guidance.')}</span></div>
+        <div><strong>{tr('Available on your device')}</strong><span>{tr('Your records remain available on this device when you are offline.')}</span></div>
+        <div><strong>{tr('Practical business guidance')}</strong><span>{tr('OjaChat can use relevant store information to offer general guidance.')}</span></div>
         <div><strong>{tr('Privacy-conscious')}</strong><span>{tr('Sensitive information stays behind dedicated account and security screens.')}</span></div>
-      </div>
-    </SimpleScreen>
-  );
-}
-
-function PrivacyScreen({ onBack }: { onBack: () => void }) {
-  const { tr } = useI18n();
-  return (
-    <SimpleScreen title={tr('Privacy Policy')} subtitle={tr('How OjaFlow handles account and business information.')} onBack={onBack}>
-      <div className="legal-copy">
-        <h3>{tr('Information OjaFlow uses')}</h3>
-        <p>{tr('OjaFlow processes the account information you provide, including your phone number, profile details, business profile and the business records you create in the app.')}</p>
-        <h3>{tr('Why the information is used')}</h3>
-        <p>{tr('Your information is used to authenticate your account, display your workspace, synchronize records, calculate summaries and give OjaChat relevant business context.')}</p>
-        <h3>{tr('Passwords and account security')}</h3>
-        <p>{tr('Plaintext passwords are not stored in ordinary app records. Phone ownership is not currently verified by SMS in this MVP.')}</p>
-        <h3>{tr('Exports')}</h3>
-        <p>{tr('When you export data, OjaFlow creates the requested file in your browser for download to your device.')}</p>
-        <h3>{tr('Before public launch')}</h3>
-        <p>{tr('This product policy should be reviewed before OjaFlow is released commercially.')}</p>
-      </div>
-    </SimpleScreen>
-  );
-}
-
-function TermsScreen({ onBack }: { onBack: () => void }) {
-  const { tr } = useI18n();
-  return (
-    <SimpleScreen title={tr('Terms of Use')} subtitle={tr('Basic terms for using OjaFlow.')} onBack={onBack}>
-      <div className="legal-copy">
-        <h3>{tr('Your records')}</h3>
-        <p>{tr('You are responsible for checking the accuracy of records entered into OjaFlow.')}</p>
-        <h3>OjaChat</h3>
-        <p>{tr('OjaChat provides informational business guidance and does not replace professional legal, tax, accounting or regulated financial advice.')}</p>
-        <h3>{tr('Account security')}</h3>
-        <p>{tr('Keep your password secure. Sensitive account changes require password re-entry and explicit confirmation.')}</p>
-        <h3>{tr('Service availability')}</h3>
-        <p>{tr('Some features depend on third-party infrastructure and internet connectivity.')}</p>
-        <h3>{tr('Before commercial release')}</h3>
-        <p>{tr('These product terms should receive appropriate legal review before a public commercial launch.')}</p>
       </div>
     </SimpleScreen>
   );
@@ -964,6 +966,5 @@ function DeleteScreen({ profile, onBack, onDelete }: {
         </button>
       </div>
     </SimpleScreen>
-  );
+   );
 }
-
