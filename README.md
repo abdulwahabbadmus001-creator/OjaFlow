@@ -8,9 +8,9 @@
 
 **OjaFlow MVP v1.1**
 
-Sales Â· Stock Â· Expenses Â· Debts Â· Customers Â· Invoices Â· Receipts Â· Business Intelligence Â· AI Assistance
+Sales · Inventory · Expenses · Debts · Customers · Invoices · Receipts · Business insights · OjaChat
 
-[![MVP](https://img.shields.io/badge/Release-MVP%20v1.1-0A523D)](https://ojaflow.netlify.app/)
+[![Release](https://img.shields.io/badge/Release-v1.1-0A523D)](https://ojaflow.netlify.app/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
@@ -20,7 +20,7 @@ Sales Â· Stock Â· Expenses Â· Debts Â· Customers Â· Invoices Â· Rece
 [![Render](https://img.shields.io/badge/Backend-Render-111111)](https://render.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-**Nigeria-first Â· Mobile-responsive Â· Local-first Â· Multilingual Â· AI-assisted**
+**Made for Nigerian businesses · Mobile-friendly · Works offline · Multiple languages · Practical AI assistance**
 
 ### [Launch OjaFlow](https://ojaflow.netlify.app/)
 
