@@ -1,4 +1,4 @@
-﻿import BrandLogo from './components/BrandLogo';
+import BrandLogo from './components/BrandLogo';
 import { useEffect, useMemo, useState } from 'react';
 import type { AppSection, BusinessProfile, ThemePreference, UserProfile } from './types';
 import AuthPage from './pages/AuthPage';
@@ -11,8 +11,8 @@ import SettingsPage from './pages/SettingsPage';
 import AppShell from './components/AppShell';
 import QuickAction from './components/QuickAction';
 import OjaChat from './components/OjaChat';
-import { clearUserCache, saveBusiness, saveProfile } from './lib/storage';
-import { api } from './lib/api';
+import { clearAllUserCaches, clearUserCache, saveBusiness, saveLastSync, saveProfile, saveStore } from './lib/storage';
+import { api, clearCsrf, type RemoteStoreSnapshot } from './lib/api';
 import { useStore } from './lib/useStore';
 import { LanguageProvider } from './lib/i18n';
 import { t } from './lib/language';
@@ -41,7 +41,6 @@ export default function App() {
   const store = useStore(uid);
   const [legalPage, setLegalPage] = useState<'terms' | 'privacy' | 'faq' | null>(null);
 
-
   useEffect(() => {
     const apply = () => {
       document.documentElement.dataset.theme = resolveTheme(theme);
@@ -55,21 +54,50 @@ export default function App() {
 
   useEffect(() => {
     void api.session()
-      .then(result => activate(result.profile, result.business))
-      .catch(() => setSession(null))
+      .then(result => activate(result.profile, result.business, result.store))
+      .catch(() => {
+        clearAllUserCaches();
+        clearCsrf();
+        setSession(null);
+      })
       .finally(() => setChecking(false));
   }, []);
 
-  function activate(profile: UserProfile, business?: BusinessProfile | null) {
+  function activate(
+    profile: UserProfile,
+    business?: BusinessProfile | null,
+    remoteStore?: RemoteStoreSnapshot
+  ) {
+    if (session && session.uid !== profile.uid) {
+      clearUserCache(session.uid);
+    }
     saveProfile(profile);
-    if (business) saveBusiness(profile.uid, business);
+    if (business) {
+      saveBusiness(profile.uid, business);
+    }
+    if (remoteStore?.data) {
+      saveStore(profile.uid, remoteStore.data);
+      if (remoteStore.updatedAt) {
+        saveLastSync(profile.uid, remoteStore.updatedAt);
+      }
+    }
     setSession(profile);
     setSection('home');
   }
 
   async function logout() {
-    try { await api.logout(); } catch { /* local cleanup still proceeds */ }
+    try {
+      await store.actions.syncNow();
+    } catch {
+      /* proceed with logout even if offline */
+    }
+    try {
+      await api.logout();
+    } catch {
+      /* local cleanup still proceeds */
+    }
     if (uid) clearUserCache(uid);
+    clearCsrf();
     setSession(null);
     setSection('home');
     setChat(false);
@@ -77,6 +105,7 @@ export default function App() {
 
   function deleted() {
     if (uid) clearUserCache(uid);
+    clearCsrf();
     setSession(null);
     setSection('home');
     setChat(false);
@@ -89,16 +118,16 @@ export default function App() {
     return { profile: currentProfile, business: currentBusiness };
   }, [session, currentProfile, currentBusiness]);
 
-if (checking) {
-  return (
-    <div className="splash">
-      <BrandLogo />
-      <small>
-        Preparing your business…
-      </small>
-    </div>
-  );
-}
+  if (checking) {
+    return (
+      <div className="splash">
+        <BrandLogo />
+        <small>
+          Preparing your business…
+        </small>
+      </div>
+    );
+  }
 
   if (!session) {
     return (
@@ -120,7 +149,14 @@ if (checking) {
       </>
     );
   }
-  if (!store.profile) return <div className="splash"><strong>{t(session.preferredLanguage, 'Loading your profileâ€¦')}</strong></div>;
+
+  if (!store.profile) {
+    return (
+      <div className="splash">
+        <strong>{t(session.preferredLanguage, 'Loading your profile…')}</strong>
+      </div>
+    );
+  }
 
   if (!store.business || !session.businessProfileCompleted) {
     return (
@@ -147,7 +183,13 @@ if (checking) {
     );
   }
 
-  if (!shell) return <div className="splash"><strong>{t(session.preferredLanguage, 'Preparing workspace…')}</strong></div>;
+  if (!shell) {
+    return (
+      <div className="splash">
+        <strong>{t(session.preferredLanguage, 'Preparing workspace…')}</strong>
+      </div>
+    );
+  }
   const { profile, business } = shell;
 
   return (

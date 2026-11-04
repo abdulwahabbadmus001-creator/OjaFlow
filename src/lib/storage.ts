@@ -200,3 +200,27 @@ export function clearUserCache(
     }
   }
 }
+
+export function clearAllUserCaches() {
+  const preserve = new Set([
+    'ojaflow:theme',
+    'ojaflow:cookie-consent',
+    'ojaflow:essential-storage-consent'
+  ]);
+
+  for (
+    let i = localStorage.length - 1;
+    i >= 0;
+    i -= 1
+  ) {
+    const itemKey = localStorage.key(i);
+
+    if (
+      itemKey &&
+      itemKey.startsWith('ojaflow:') &&
+      !preserve.has(itemKey)
+    ) {
+      localStorage.removeItem(itemKey);
+    }
+  }
+}

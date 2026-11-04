@@ -14,7 +14,7 @@ Copy-Item .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-When `OTP_PROVIDER=console`, a registration/recovery/delete OTP is printed in this backend terminal.
+The current app registration form creates an account immediately through `/api/auth/register` and does not require SMS verification. This does not verify ownership of the supplied phone number, so configure a verified registration flow before exposing it in production. OTP-based recovery flows use the local console provider by default; their codes are printed in this backend terminal.
 
 API docs: `http://localhost:8000/docs`
 Health: `http://localhost:8000/api/health`

@@ -1,13 +1,9 @@
-﻿from fastapi import FastAPI
-from fastapi.middleware.cors import (
-    CORSMiddleware,
-)
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import Base, engine
-from .migrations import (
-    ensure_ojatag_schema,
-)
+from .migrations import ensure_ojatag_schema
 from .routers import (
     account,
     auth,
@@ -19,24 +15,26 @@ from .routers import (
 
 settings = get_settings()
 
-
 # First create any completely new tables.
 Base.metadata.create_all(bind=engine)
 
-# Then safely upgrade/backfill
-# the existing users table.
+# Then safely upgrade/backfill the existing users table.
 ensure_ojatag_schema(engine)
 
 
 app = FastAPI(
     title=settings.app_name,
-    version="1.1.0",
+    version="1.2.0",
 )
 
+# Disallow wildcard origins when credentials are enabled
+allowed_origins = [
+    origin for origin in settings.origins if origin and origin != "*"
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=[
         "GET",
@@ -50,6 +48,32 @@ app.add_middleware(
         "X-CSRF-Token",
     ],
 )
+
+
+@app.middleware("http")
+async def security_headers_middleware(
+    request: Request, call_next
+) -> Response:
+    response: Response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=()"
+    )
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; frame-ancestors 'none'"
+    )
+    if settings.cookie_secure or settings.app_env.lower() == "production":
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = (
+            "no-store, no-cache, must-revalidate, private"
+        )
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 
 app.include_router(

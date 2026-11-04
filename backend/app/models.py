@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -65,6 +65,16 @@ class User(Base):
 
     password_hash: Mapped[str] = mapped_column(Text)
 
+    security_question: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    security_answer_hash: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     onboarding_completed: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
@@ -78,6 +88,26 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,
+    )
+
+    failed_pin_attempts: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+    )
+
+    locked_until_epoch: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    failed_recovery_attempts: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+    )
+
+    recovery_locked_until_epoch: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

@@ -1,4 +1,4 @@
-﻿﻿import { useState } from 'react';
+import { useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,7 +10,7 @@ import {
   Sparkles
 } from 'lucide-react';
 
-import { api } from '../lib/api';
+import { api, type RemoteStoreSnapshot } from '../lib/api';
 import { languageOptions, t } from '../lib/language';
 import { normalizeNigerianPhone } from '../lib/phone';
 import type {
@@ -22,6 +22,84 @@ import type {
 import BrandLogo from '../components/BrandLogo';
 
 type AuthMode = 'login' | 'register' | 'forgot';
+type RecoveryStep = 'identify' | 'answer' | 'reset';
+
+const PIN_REGEX = /^\d{4}$/;
+
+export const LOCALIZED_TRADER_SECURITY_QUESTIONS: Record<
+  LanguagePreference,
+  readonly string[]
+> = {
+  en: [
+    'What is the primary market name or location where you trade?',
+    'What is the main item or product you sell most?',
+    'What is your business nickname or popular shop alias?',
+    'What is the first name of your first regular customer or supplier?',
+    'What town or street did you open your first shop or stall in?'
+  ],
+  pcm: [
+    'Wetin be the main market name or area wey you dey trade?',
+    'Wetin be my best item to sell?',
+    'Wetin be your popular shop alias or business nickname?',
+    'Wetin be the first name of your number one customer or supplier?',
+    'Which town or street you first open your shop or table?'
+  ],
+  yo: [
+    'Kí ni orúkọ ọjà mi?',
+    'Kí ni ohun tí mo fẹ́ràn láti tà jùlọ?',
+    'Kí ni orúkọ ìnagijẹ iṣẹ́ tàbí ṣọ́ọ̀bù mi?',
+    'Kí ni orúkọ oníbàárà tàbí aláàánú mi àkọ́kọ́?',
+    'Ìlú tàbí òpópónà wo ni mo ti kọ́kọ́ ṣí ṣọ́ọ̀bù mi?'
+  ],
+  ha: [
+    'Mene ne sunan babbar kasuwar da kake/kike ciniki?',
+    'Mene ne babban kayan da kake/kike fi sayarwa?',
+    'Mene ne lakabin kasuwancinka ko sunan shagonka?',
+    'Mene ne sunan abokin cinikinka ko mai kawo kaya na farko?',
+    'A wane gari ko titi ka/kika fara buɗe shago ko tebur?'
+  ],
+  ig: [
+    'Kedu aha ahịa ebe ị na-azụ ahịa?',
+    "Kedu ngwaahịa kacha ere n'ụlọ ahịa gị?",
+    'Kedu aha otutu azụmahịa ma ọ bụ ọdụ ahịa gị?',
+    'Kedu aha onye ahịa ma ọ bụ onye na-ebubata ngwaahịa mbụ gị?',
+    'Kedu obodo ma ọ bụ okporo ụzọ ị meghere ụlọ ahịa mbụ gị?'
+  ]
+};
+
+export const TRADER_SECURITY_QUESTIONS =
+  LOCALIZED_TRADER_SECURITY_QUESTIONS.en;
+
+export const LOCALIZED_CUSTOM_QUESTION_PLACEHOLDERS: Record<
+  LanguagePreference,
+  string
+> = {
+  en: 'e.g. What is the name of my first apprentice?',
+  pcm: 'e.g. Wetin be my best item to sell?',
+  yo: 'e.g. Kí ni orúkọ ọjà mi?',
+  ha: 'e.g. Mene ne sunan kasuwar da nake ciniki?',
+  ig: 'e.g. Kedu aha ahịa ebe m na-ere ahịa?'
+};
+
+export const LOCALIZED_ANSWER_PLACEHOLDERS: Record<
+  LanguagePreference,
+  string
+> = {
+  en: 'e.g. Balogun Market / Bags of rice / Mama T',
+  pcm: 'e.g. Balogun Market / Bag of rice / Mama T',
+  yo: 'e.g. Ọjà Balógun / Àpò ìrẹsì / Mama T',
+  ha: 'e.g. Kasuwar Kurmi / Buhun shinkafa / Hajiya Amina',
+  ig: 'e.g. Ahịa Ariaria / Akpa osikapa / Mama Ngozi'
+};
+
+const CUSTOM_QUESTION_VALUE = '__custom__';
+
+function enforceDigitsOnly(event: React.FormEvent<HTMLInputElement>) {
+  const cleaned = event.currentTarget.value.replace(/\D/g, '').slice(0, 4);
+  if (event.currentTarget.value !== cleaned) {
+    event.currentTarget.value = cleaned;
+  }
+}
 
 export default function AuthPage({
   onAuthenticated,
@@ -29,38 +107,71 @@ export default function AuthPage({
 }: {
   onAuthenticated: (
     profile: UserProfile,
-    business?: BusinessProfile | null
+    business?: BusinessProfile | null,
+    remoteStore?: RemoteStoreSnapshot
   ) => void;
   cookieConsentAccepted: boolean;
 }) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [registrationChallengeId, setRegistrationChallengeId] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPin, setShowPin] = useState(false);
+
+  const [selectedQuestionChoice, setSelectedQuestionChoice] = useState<string>(
+    '0'
+  );
+  const [customSecurityQuestion, setCustomSecurityQuestion] = useState('');
+
+  // Forgot PIN recovery flow state
+  const [recoveryStep, setRecoveryStep] = useState<RecoveryStep>('identify');
+  const [recoveryIdentifier, setRecoveryIdentifier] = useState('');
+  const [recoveryQuestionText, setRecoveryQuestionText] = useState('');
+  const [recoveryAnswer, setRecoveryAnswer] = useState('');
+  const [recoveryToken, setRecoveryToken] = useState('');
 
   const [preferredLanguage, setPreferredLanguage] =
     useState<LanguagePreference>('en');
+
+  const localizedQuestions =
+    LOCALIZED_TRADER_SECURITY_QUESTIONS[preferredLanguage] ||
+    LOCALIZED_TRADER_SECURITY_QUESTIONS.en;
 
   const tr = (
     key: string,
     vars?: Record<string, string | number>
   ) => t(preferredLanguage, key, vars);
 
+  function resetRecoveryState() {
+    setRecoveryStep('identify');
+    setRecoveryIdentifier('');
+    setRecoveryQuestionText('');
+    setRecoveryAnswer('');
+    setRecoveryToken('');
+    setError('');
+  }
+
   async function login(form: HTMLFormElement) {
     const fd = new FormData(form);
+    const loginIdentifier = String(fd.get('phone') || '').trim();
+    const pin = String(fd.get('pin') || '').trim();
+
+    if (!PIN_REGEX.test(pin)) {
+      setError(tr('Enter your 4-digit PIN.'));
+      return;
+    }
 
     setBusy(true);
     setError('');
 
     try {
       const result = await api.loginPassword(
-        normalizeNigerianPhone(String(fd.get('phone') || '')),
-        String(fd.get('password') || '')
+        /^OJA/i.test(loginIdentifier)
+          ? loginIdentifier
+          : normalizeNigerianPhone(loginIdentifier),
+        pin
       );
 
-      onAuthenticated(result.profile, result.business);
+      onAuthenticated(result.profile, result.business, result.store);
     } catch (e) {
       setError(
         e instanceof Error
@@ -80,55 +191,160 @@ export default function AuthPage({
 
     const fd = new FormData(form);
 
-    const password = String(fd.get('password') || '');
-    const confirm = String(fd.get('confirm') || '');
-    const otp = String(fd.get('otp') || '').trim();
+    const pin = String(fd.get('pin') || '').trim();
+    const confirm = String(fd.get('confirm') || '').trim();
+    const finalQuestion = (
+      selectedQuestionChoice === CUSTOM_QUESTION_VALUE
+        ? customSecurityQuestion
+        : localizedQuestions[Number(selectedQuestionChoice)] ||
+          localizedQuestions[0]
+    ).trim();
+    const securityAnswer = String(fd.get('securityAnswer') || '').trim();
 
-    if (password.length < 8) {
+    if (!PIN_REGEX.test(pin)) {
       setError(
-        tr('Password must contain at least 8 characters.')
+        tr('PIN must be exactly 4 digits.')
       );
       return;
     }
 
-    if (password !== confirm) {
-      setError(tr('Passwords do not match.'));
+    if (pin !== confirm) {
+      setError(tr('PINs do not match.'));
+      return;
+    }
+
+    if (finalQuestion.length < 5) {
+      setError(tr('Choose or write a security question for PIN recovery.'));
+      return;
+    }
+
+    if (securityAnswer.length < 2) {
+      setError(tr('Enter an answer of at least 2 characters for your security question.'));
       return;
     }
 
     setBusy(true);
     setError('');
-    setNotice('');
 
     try {
-      if (!registrationChallengeId) {
-        const { challengeId } = await api.registerStart({
-          phone: normalizeNigerianPhone(
-            String(fd.get('phone') || '')
-          ),
-          firstName: String(fd.get('firstName') || '').trim(),
-          lastName: String(fd.get('lastName') || '').trim(),
-          otherName: String(fd.get('otherName') || '').trim(),
-          password,
-          preferredLanguage
-        });
-        setRegistrationChallengeId(challengeId);
-        setNotice(tr('A verification code has been requested. Enter it below to finish creating your account.'));
-        return;
-      }
-
-      if (!otp) {
-        setError(tr('Enter the verification code.'));
-        return;
-      }
-
-      const result = await api.registerVerify(registrationChallengeId, otp);
-      onAuthenticated(result.profile, result.business);
+      const result = await api.register({
+        phone: normalizeNigerianPhone(String(fd.get('phone') || '')),
+        firstName: String(fd.get('firstName') || '').trim(),
+        lastName: String(fd.get('lastName') || '').trim(),
+        otherName: String(fd.get('otherName') || '').trim(),
+        pin,
+        securityQuestion: finalQuestion,
+        securityAnswer,
+        preferredLanguage
+      });
+      onAuthenticated(result.profile, result.business, result.store);
     } catch (e) {
       setError(
         e instanceof Error
           ? e.message
           : tr('Could not create your account.')
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function lookupRecoveryQuestion(form: HTMLFormElement) {
+    const fd = new FormData(form);
+    const rawId = String(fd.get('identifier') || '').trim();
+    if (!rawId) {
+      setError(tr('Enter your phone number or OjaTag.'));
+      return;
+    }
+
+    const normalizedId = /^OJA/i.test(rawId)
+      ? rawId
+      : normalizeNigerianPhone(rawId);
+
+    setBusy(true);
+    setError('');
+
+    try {
+      const result = await api.recoveryQuestion(
+        normalizedId,
+        preferredLanguage
+      );
+      setRecoveryIdentifier(normalizedId);
+      setRecoveryQuestionText(result.securityQuestion);
+      if (result.preferredLanguage) {
+        setPreferredLanguage(result.preferredLanguage);
+      }
+      setRecoveryStep('answer');
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : tr('Could not look up recovery question.')
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyRecoveryAnswer(form: HTMLFormElement) {
+    const fd = new FormData(form);
+    const answer = String(fd.get('securityAnswer') || '').trim();
+    if (answer.length < 2) {
+      setError(tr('Enter your security answer.'));
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+
+    try {
+      const result = await api.recoveryVerifyAnswer(recoveryIdentifier, answer);
+      setRecoveryAnswer(answer);
+      setRecoveryToken(result.recoveryToken);
+      setRecoveryStep('reset');
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : tr('Incorrect security answer or account details.')
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitNewPin(form: HTMLFormElement) {
+    const fd = new FormData(form);
+    const newPin = String(fd.get('newPin') || '').trim();
+    const confirmPin = String(fd.get('confirmPin') || '').trim();
+
+    if (!PIN_REGEX.test(newPin)) {
+      setError(tr('New PIN must be exactly 4 digits.'));
+      return;
+    }
+
+    if (newPin !== confirmPin) {
+      setError(tr('PINs do not match.'));
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+
+    try {
+      const result = await api.recoveryResetPin({
+        recoveryToken,
+        identifier: recoveryIdentifier,
+        securityAnswer: recoveryAnswer,
+        newPin
+      });
+      resetRecoveryState();
+      onAuthenticated(result.profile, result.business, result.store);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : tr('Could not reset your 4-digit PIN.')
       );
     } finally {
       setBusy(false);
@@ -180,8 +396,6 @@ export default function AuthPage({
           onClick={() => {
             setMode('login');
             setError('');
-            setNotice('');
-            setRegistrationChallengeId('');
           }}
         >
           {tr('Log in')}
@@ -193,8 +407,6 @@ export default function AuthPage({
           onClick={() => {
             setMode('register');
             setError('');
-            setNotice('');
-            setRegistrationChallengeId('');
           }}
         >
           {tr('Create account')}
@@ -211,7 +423,7 @@ export default function AuthPage({
 
           <p className="muted">
             {tr(
-              'Use your registered phone number and password.'
+              'Use your registered phone number or OjaTag and 4-digit PIN.'
             )}
           </p>
 
@@ -223,43 +435,44 @@ export default function AuthPage({
             }}
           >
             <label>
-              {tr('Phone number')}
-
-              <div className="phone-field">
-                <span>+234</span>
-
-                <input
-                  name="phone"
-                  inputMode="tel"
-                  placeholder="801 234 5678"
-                  required
-                />
-              </div>
+              {tr('Phone number or OjaTag')}
+              <input
+                name="phone"
+                autoComplete="username"
+                placeholder="801 234 5678 or OJA-XXXX-XXXX"
+                required
+              />
             </label>
 
             <label>
-              {tr('Password')}
+              {tr('4-digit PIN')}
 
               <div className="password-field">
                 <input
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder={tr('Your password')}
+                  name="pin"
+                  type={showPin ? 'text' : 'password'}
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                  minLength={4}
+                  maxLength={4}
+                  autoComplete="current-password"
+                  placeholder="••••"
+                  onInput={enforceDigitsOnly}
                   required
                 />
 
                 <button
                   type="button"
                   onClick={() =>
-                    setShowPassword(value => !value)
+                    setShowPin(value => !value)
                   }
                   aria-label={
-                    showPassword
-                      ? tr('Hide password')
-                      : tr('Show password')
+                    showPin
+                      ? tr('Hide PIN')
+                      : tr('Show PIN')
                   }
                 >
-                  {showPassword ? (
+                  {showPin ? (
                     <EyeOff size={18} />
                   ) : (
                     <Eye size={18} />
@@ -272,11 +485,11 @@ export default function AuthPage({
               type="button"
               className="forgot-link"
               onClick={() => {
+                resetRecoveryState();
                 setMode('forgot');
-                setError('');
               }}
             >
-              {tr('Forgot password?')}
+              {tr('Forgot PIN?')}
             </button>
 
             {error && (
@@ -307,7 +520,7 @@ export default function AuthPage({
 
           <p className="muted">
             {tr(
-              'No email required. Your phone number is your login ID and your password protects the account.'
+              'No email required. Your phone number and unique OjaTag let you log in on any device with your 4-digit PIN.'
             )}
           </p>
 
@@ -316,7 +529,7 @@ export default function AuthPage({
 
             <span>
               {tr(
-                'We will ask you to verify your phone number before creating your account.'
+                'Your account will be created immediately without SMS verification.'
               )}
             </span>
           </div>
@@ -347,10 +560,7 @@ export default function AuthPage({
                 aria-label={tr('Language')}
                 value={preferredLanguage}
                 onChange={event =>
-                    {
-                      setPreferredLanguage(event.target.value as LanguagePreference);
-                      setRegistrationChallengeId('');
-                    }
+                  setPreferredLanguage(event.target.value as LanguagePreference)
                 }
               >
                 {languageOptions.map(option => (
@@ -367,12 +577,12 @@ export default function AuthPage({
             <div className="two-col">
               <label>
                 {tr('First name')}
-                <input name="firstName" required onChange={() => setRegistrationChallengeId('')} />
+                <input name="firstName" required />
               </label>
 
               <label>
                 {tr('Surname')}
-                <input name="lastName" required onChange={() => setRegistrationChallengeId('')} />
+                <input name="lastName" required />
               </label>
             </div>
 
@@ -382,7 +592,7 @@ export default function AuthPage({
                 {tr('Optional')}
               </span>
 
-              <input name="otherName" onChange={() => setRegistrationChallengeId('')} />
+              <input name="otherName" />
             </label>
 
             <label>
@@ -396,56 +606,109 @@ export default function AuthPage({
                   inputMode="tel"
                   placeholder="801 234 5678"
                   required
-                  onChange={() => setRegistrationChallengeId('')}
                 />
               </div>
             </label>
 
             <div className="two-col">
               <label>
-                {tr('Password')}
+                {tr('4-digit PIN')}
 
                 <input
-                  name="password"
+                  name="pin"
                   type="password"
-                  minLength={8}
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                  minLength={4}
+                  maxLength={4}
+                  autoComplete="new-password"
+                  placeholder="••••"
+                  onInput={enforceDigitsOnly}
                   required
-                  onChange={() => setRegistrationChallengeId('')}
                 />
               </label>
 
               <label>
-                {tr('Confirm password')}
+                {tr('Confirm 4-digit PIN')}
 
                 <input
                   name="confirm"
                   type="password"
-                  minLength={8}
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                  minLength={4}
+                  maxLength={4}
+                  autoComplete="new-password"
+                  placeholder="••••"
+                  onInput={enforceDigitsOnly}
                   required
-                  onChange={() => setRegistrationChallengeId('')}
                 />
               </label>
             </div>
+
+            <label>
+              {tr('Security question (in your preferred language or dialect)')}
+
+              <select
+                name="securityQuestionSelect"
+                value={selectedQuestionChoice}
+                onChange={event =>
+                  setSelectedQuestionChoice(event.target.value)
+                }
+              >
+                {localizedQuestions.map((question, idx) => (
+                  <option key={idx} value={String(idx)}>
+                    {question}
+                  </option>
+                ))}
+                <option value={CUSTOM_QUESTION_VALUE}>
+                  {tr('Write my own personal trade question…')}
+                </option>
+              </select>
+            </label>
+
+            {selectedQuestionChoice === CUSTOM_QUESTION_VALUE && (
+              <label>
+                {tr('Your custom security question (any language or dialect)')}
+
+                <input
+                  name="customSecurityQuestion"
+                  value={customSecurityQuestion}
+                  onChange={event =>
+                    setCustomSecurityQuestion(event.target.value)
+                  }
+                  placeholder={
+                    LOCALIZED_CUSTOM_QUESTION_PLACEHOLDERS[
+                      preferredLanguage
+                    ]
+                  }
+                  minLength={5}
+                  maxLength={255}
+                  required
+                />
+              </label>
+            )}
+
+            <label>
+              {tr('Security answer')}
+
+              <input
+                name="securityAnswer"
+                type="text"
+                autoComplete="off"
+                placeholder={
+                  LOCALIZED_ANSWER_PLACEHOLDERS[preferredLanguage]
+                }
+                minLength={2}
+                maxLength={160}
+                required
+              />
+            </label>
 
             {error && (
               <div className="form-error">
                 {error}
               </div>
-            )}
-
-            {notice && <div className="inline-status">{notice}</div>}
-
-            {registrationChallengeId && (
-              <label>
-                {tr('Verification code')}
-                <input
-                  name="otp"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={8}
-                  required
-                />
-              </label>
             )}
 
             {!cookieConsentAccepted && (
@@ -460,9 +723,7 @@ export default function AuthPage({
             >
               {busy
                 ? tr('Please wait…')
-                : registrationChallengeId
-                  ? tr('Verify code and create account')
-                  : tr('Request verification code')}
+                : tr('Create account')}
 
               <ArrowRight size={18} />
             </button>
@@ -474,8 +735,8 @@ export default function AuthPage({
             type="button"
             className="back-btn auth-back"
             onClick={() => {
+              resetRecoveryState();
               setMode('login');
-              setError('');
             }}
           >
             <ArrowLeft size={17} />
@@ -486,25 +747,153 @@ export default function AuthPage({
             {tr('ACCOUNT RECOVERY')}
           </span>
 
-          <h2>{tr('Forgot your password?')}</h2>
+          <h2>{tr('Recover your 4-digit PIN')}</h2>
 
-          <div className="recovery-info-card">
-            <div className="round-icon">
-              <KeyRound />
-            </div>
+          {recoveryStep === 'identify' ? (
+            <>
+              <p className="muted">
+                {tr(
+                  'Enter your registered phone number or OjaTag to view your personal trader security question.'
+                )}
+              </p>
 
-            <p>
-              {tr(
-                'Self-service password recovery is temporarily unavailable because OjaFlow does not yet have a verified free recovery channel.'
-              )}
-            </p>
+              <form
+                className="form-stack"
+                onSubmit={event => {
+                  event.preventDefault();
+                  void lookupRecoveryQuestion(event.currentTarget);
+                }}
+              >
+                <label>
+                  {tr('Phone number or OjaTag')}
+                  <input
+                    name="identifier"
+                    autoComplete="username"
+                    placeholder="801 234 5678 or OJA-XXXX-XXXX"
+                    required
+                  />
+                </label>
 
-            <p className="muted">
-              {tr(
-                'If you are still signed in on another device, open Settings → Security & Login → Change Password.'
-              )}
-            </p>
-          </div>
+                {error && <div className="form-error">{error}</div>}
+
+                <button disabled={busy} className="primary-btn full">
+                  {busy ? tr('Checking…') : tr('Continue')}
+                  <ArrowRight size={18} />
+                </button>
+              </form>
+            </>
+          ) : recoveryStep === 'answer' ? (
+            <>
+              <p className="muted">
+                {tr(
+                  'Answer the personal security question you set when creating your OjaFlow account.'
+                )}
+              </p>
+
+              <div className="auth-security-note">
+                <KeyRound size={18} />
+                <span>
+                  <strong>{recoveryQuestionText}</strong>
+                </span>
+              </div>
+
+              <form
+                className="form-stack"
+                onSubmit={event => {
+                  event.preventDefault();
+                  void verifyRecoveryAnswer(event.currentTarget);
+                }}
+              >
+                <label>
+                  {tr('Your security answer')}
+                  <input
+                    name="securityAnswer"
+                    type="text"
+                    autoComplete="off"
+                    placeholder={tr('Type your answer')}
+                    minLength={2}
+                    maxLength={160}
+                    required
+                  />
+                </label>
+
+                {error && <div className="form-error">{error}</div>}
+
+                <button disabled={busy} className="primary-btn full">
+                  {busy ? tr('Verifying…') : tr('Verify answer')}
+                  <ArrowRight size={18} />
+                </button>
+
+                <button
+                  type="button"
+                  className="forgot-link"
+                  onClick={() => {
+                    setRecoveryStep('identify');
+                    setError('');
+                  }}
+                >
+                  {tr('Use a different phone number or OjaTag')}
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <p className="muted">
+                {tr(
+                  'Security answer verified! Enter your new 4-digit PIN below to sign right back into your shop.'
+                )}
+              </p>
+
+              <form
+                className="form-stack"
+                onSubmit={event => {
+                  event.preventDefault();
+                  void submitNewPin(event.currentTarget);
+                }}
+              >
+                <div className="two-col">
+                  <label>
+                    {tr('New 4-digit PIN')}
+                    <input
+                      name="newPin"
+                      type={showPin ? 'text' : 'password'}
+                      inputMode="numeric"
+                      pattern="\d{4}"
+                      minLength={4}
+                      maxLength={4}
+                      autoComplete="new-password"
+                      placeholder="••••"
+                      onInput={enforceDigitsOnly}
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    {tr('Confirm new PIN')}
+                    <input
+                      name="confirmPin"
+                      type={showPin ? 'text' : 'password'}
+                      inputMode="numeric"
+                      pattern="\d{4}"
+                      minLength={4}
+                      maxLength={4}
+                      autoComplete="new-password"
+                      placeholder="••••"
+                      onInput={enforceDigitsOnly}
+                      required
+                    />
+                  </label>
+                </div>
+
+                {error && <div className="form-error">{error}</div>}
+
+                <button disabled={busy} className="primary-btn full">
+                  {busy ? tr('Saving PIN…') : tr('Save new 4-digit PIN')}
+                  <ArrowRight size={18} />
+                </button>
+              </form>
+            </>
+          )}
         </>
       )}
     </AuthLayout>

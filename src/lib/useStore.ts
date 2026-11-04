@@ -1,16 +1,57 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BusinessProfile, Customer, Debt, Expense, Invoice, Product, Sale, StoreData, SyncStatus, UserProfile } from '../types';
 import { loadBusiness, loadLastSync, loadProfile, loadStore, saveBusiness, saveLastSync, saveProfile, saveStore } from './storage';
 import { api } from './api';
 
-const emptyStore: StoreData = { products: [], sales: [], expenses: [], debts: [], customers: [], invoices: [] };
+const emptyStore: StoreData = {
+  products: [],
+  sales: [],
+  expenses: [],
+  debts: [],
+  customers: [],
+  invoices: []
+};
 
-function hasLocalData(data: StoreData) {
+function normalizeStore(raw?: Partial<StoreData> | null): StoreData {
+  return {
+    products: Array.isArray(raw?.products) ? raw.products : [],
+    sales: Array.isArray(raw?.sales) ? raw.sales : [],
+    expenses: Array.isArray(raw?.expenses) ? raw.expenses : [],
+    debts: Array.isArray(raw?.debts) ? raw.debts : [],
+    customers: Array.isArray(raw?.customers) ? raw.customers : [],
+    invoices: Array.isArray(raw?.invoices) ? raw.invoices : []
+  };
+}
+
+function hasAnyRecords(data: StoreData) {
   return Object.values(data).some(value => Array.isArray(value) && value.length > 0);
 }
 
+function mergeById<T extends { id: string }>(localItems: T[], remoteItems: T[]): T[] {
+  const seen = new Set<string>();
+  const merged: T[] = [];
+  for (const item of [...localItems, ...remoteItems]) {
+    if (item && typeof item.id === 'string' && !seen.has(item.id)) {
+      seen.add(item.id);
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
+function mergeStores(local: StoreData, remote: StoreData): StoreData {
+  return {
+    products: mergeById(local.products, remote.products),
+    sales: mergeById(local.sales, remote.sales),
+    expenses: mergeById(local.expenses, remote.expenses),
+    debts: mergeById(local.debts, remote.debts),
+    customers: mergeById(local.customers, remote.customers),
+    invoices: mergeById(local.invoices, remote.invoices)
+  };
+}
+
 export function useStore(uid: string) {
-  const [data, setData] = useState<StoreData>(() => uid ? loadStore(uid) : emptyStore);
+  const [data, setData] = useState<StoreData>(() => uid ? normalizeStore(loadStore(uid)) : emptyStore);
   const [profile, setProfileState] = useState<UserProfile | null>(() => uid ? loadProfile(uid) : null);
   const [business, setBusinessState] = useState<BusinessProfile | null>(() => uid ? loadBusiness(uid) : null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => navigator.onLine ? 'idle' : 'offline');
@@ -21,7 +62,9 @@ export function useStore(uid: string) {
   const loadedRef = useRef(false);
   const syncTimer = useRef<number | null>(null);
 
-  useEffect(() => { dataRef.current = data; }, [data]);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   useEffect(() => {
     if (!uid) {
@@ -29,9 +72,11 @@ export function useStore(uid: string) {
       setProfileState(null);
       setBusinessState(null);
       loadedRef.current = false;
+      dirtyRef.current = false;
       return;
     }
-    const local = loadStore(uid);
+
+    const local = normalizeStore(loadStore(uid));
     setData(local);
     dataRef.current = local;
     setProfileState(loadProfile(uid));
@@ -43,22 +88,35 @@ export function useStore(uid: string) {
     void api.loadStore()
       .then(async remote => {
         versionRef.current = remote.version || 0;
-        const remoteData = remote.data || emptyStore;
-        if (remote.version > 0 || hasLocalData(remoteData)) {
+        const remoteData = normalizeStore(remote.data);
+
+        if (dirtyRef.current) {
+          // User added records locally before initial fetch completed; merge and push
+          const merged = mergeStores(dataRef.current, remoteData);
+          setData(merged);
+          dataRef.current = merged;
+          saveStore(uid, merged);
+          const saved = await api.saveStore(merged, versionRef.current);
+          versionRef.current = saved.version;
+          dirtyRef.current = false;
+        } else if (remote.version > 0 || hasAnyRecords(remoteData)) {
           setData(remoteData);
           dataRef.current = remoteData;
           saveStore(uid, remoteData);
-        } else if (hasLocalData(local)) {
+        } else if (hasAnyRecords(local)) {
           const saved = await api.saveStore(local, 0);
           versionRef.current = saved.version;
         }
+
         const now = remote.updatedAt || new Date().toISOString();
         setLastSync(now);
         saveLastSync(uid, now);
         setSyncStatus('synced');
       })
       .catch(() => setSyncStatus(navigator.onLine ? 'error' : 'offline'))
-      .finally(() => { loadedRef.current = true; });
+      .finally(() => {
+        loadedRef.current = true;
+      });
   }, [uid]);
 
   useEffect(() => {
@@ -71,6 +129,12 @@ export function useStore(uid: string) {
       void api.saveStore(dataRef.current, versionRef.current)
         .then(result => {
           versionRef.current = result.version;
+          if (result.data && !dirtyRef.current) {
+            const mergedRemote = normalizeStore(result.data);
+            setData(mergedRemote);
+            dataRef.current = mergedRemote;
+            saveStore(uid, mergedRemote);
+          }
           dirtyRef.current = false;
           const now = result.updatedAt || new Date().toISOString();
           setLastSync(now);
@@ -78,8 +142,10 @@ export function useStore(uid: string) {
           setSyncStatus('synced');
         })
         .catch(() => setSyncStatus(navigator.onLine ? 'error' : 'offline'));
-    }, 700);
-    return () => { if (syncTimer.current) window.clearTimeout(syncTimer.current); };
+    }, 450);
+    return () => {
+      if (syncTimer.current) window.clearTimeout(syncTimer.current);
+    };
   }, [uid, data]);
 
   useEffect(() => {
@@ -89,8 +155,10 @@ export function useStore(uid: string) {
       void api.loadStore().then(remote => {
         if ((remote.version || 0) > versionRef.current) {
           versionRef.current = remote.version;
-          setData(remote.data || emptyStore);
-          saveStore(uid, remote.data || emptyStore);
+          const normalized = normalizeStore(remote.data);
+          setData(normalized);
+          dataRef.current = normalized;
+          saveStore(uid, normalized);
           const now = remote.updatedAt || new Date().toISOString();
           setLastSync(now);
           saveLastSync(uid, now);
@@ -102,11 +170,23 @@ export function useStore(uid: string) {
   }, [uid]);
 
   useEffect(() => {
-    const online = () => { void syncNow(); };
+    const online = () => {
+      if (dirtyRef.current) void syncNow();
+    };
     const offline = () => setSyncStatus('offline');
+    const flushOnHide = () => {
+      if (document.visibilityState === 'hidden' && dirtyRef.current && navigator.onLine) {
+        void syncNow();
+      }
+    };
     window.addEventListener('online', online);
     window.addEventListener('offline', offline);
-    return () => { window.removeEventListener('online', online); window.removeEventListener('offline', offline); };
+    document.addEventListener('visibilitychange', flushOnHide);
+    return () => {
+      window.removeEventListener('online', online);
+      window.removeEventListener('offline', offline);
+      document.removeEventListener('visibilitychange', flushOnHide);
+    };
   });
 
   function mutate(updater: (current: StoreData) => StoreData) {
@@ -120,6 +200,12 @@ export function useStore(uid: string) {
     setSyncStatus('syncing');
     const result = await api.saveStore(dataRef.current, versionRef.current);
     versionRef.current = result.version;
+    if (result.data) {
+      const mergedRemote = normalizeStore(result.data);
+      setData(mergedRemote);
+      dataRef.current = mergedRemote;
+      saveStore(uid, mergedRemote);
+    }
     dirtyRef.current = false;
     const now = result.updatedAt || new Date().toISOString();
     setLastSync(now);

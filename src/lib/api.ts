@@ -1,5 +1,6 @@
 import type {
   BusinessProfile,
+  LanguagePreference,
   StoreData,
   UserProfile
 } from '../types';
@@ -20,7 +21,7 @@ function rememberCsrf(value?: string) {
   sessionStorage.setItem(CSRF_KEY, value);
 }
 
-function clearCsrf() {
+export function clearCsrf() {
   csrfToken = '';
   sessionStorage.removeItem(CSRF_KEY);
 }
@@ -59,16 +60,16 @@ async function request<T>(
     .catch(() => ({}));
 
   if (!response.ok) {
-    const message =
-      data.detail ||
-      data.error ||
-      'Request failed.';
+    let message = 'Request failed.';
+    if (typeof data.detail === 'string') {
+      message = data.detail;
+    } else if (Array.isArray(data.detail) && data.detail[0]?.msg) {
+      message = String(data.detail[0].msg).replace(/^Value error,\s*/i, '');
+    } else if (typeof data.error === 'string') {
+      message = data.error;
+    }
 
-    throw new Error(
-      typeof message === 'string'
-        ? message
-        : 'Request failed.'
-    );
+    throw new Error(message);
   }
 
   if (data.csrfToken) {
@@ -78,9 +79,16 @@ async function request<T>(
   return data as T;
 }
 
+export type RemoteStoreSnapshot = {
+  data: StoreData;
+  version: number;
+  updatedAt?: string | null;
+};
+
 export type AuthResult = {
   profile: UserProfile;
   business: BusinessProfile | null;
+  store?: RemoteStoreSnapshot;
   csrfToken: string;
 };
 
@@ -93,15 +101,17 @@ export const api = {
 
   loginPassword: (
     identifier: string,
-    password: string
+    pin: string
   ) =>
     request<AuthResult>(
       '/auth/login',
       {
         method: 'POST',
         body: JSON.stringify({
+          identifier,
           phone: identifier,
-          password
+          pin,
+          password: pin
         })
       }
     ),
@@ -121,58 +131,114 @@ export const api = {
     return result;
   },
 
-
-  registerStart: async (payload: {
+  register: (payload: {
     phone: string;
     firstName: string;
     lastName: string;
     otherName?: string;
-    password: string;
+    pin?: string;
+    password?: string;
+    securityQuestion: string;
+    securityAnswer: string;
     preferredLanguage: string;
   }) => {
-    const result = await request<{
-      challengeId?: string;
-      challenge_id?: string;
-      phone?: string;
-      expiresIn?: number;
-      expiresInSeconds?: number;
-      message?: string;
-    }>('/auth/register/request-otp', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-
-    const challengeId =
-      result.challengeId ?? result.challenge_id;
-
-    if (!challengeId) {
-      throw new Error(
-        result.message ||
-          'The server did not return a verification challenge.'
-      );
-    }
-
-    return {
-      challengeId,
-      phone: result.phone || payload.phone,
-      expiresIn:
-        result.expiresIn ?? result.expiresInSeconds
-    };
-  },
-
-  registerVerify: (
-    challengeId: string,
-    code: string
-  ) =>
-    request<AuthResult>(
-      '/auth/register/verify',
+    const pin = payload.pin || payload.password || '';
+    return request<AuthResult>(
+      '/auth/register',
       {
         method: 'POST',
         body: JSON.stringify({
-          challengeId,
-          code
+          ...payload,
+          pin,
+          password: pin
         })
       }
+    );
+  },
+
+  recoveryQuestions: (lang = 'en') =>
+    request<{
+      questions: string[];
+      byLanguage?: Record<string, string[]>;
+    }>(`/auth/recovery/questions?lang=${encodeURIComponent(lang)}`),
+
+  recoveryQuestion: (
+    identifier: string,
+    preferredLanguage: LanguagePreference = 'en'
+  ) =>
+    request<{
+      securityQuestion: string;
+      preferredLanguage?: LanguagePreference;
+    }>(
+      '/auth/recovery/question',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          identifier,
+          phone: identifier,
+          preferredLanguage
+        })
+      }
+    ),
+
+  recoveryVerifyAnswer: (
+    identifier: string,
+    securityAnswer: string
+  ) =>
+    request<{ ok: boolean; recoveryToken: string }>(
+      '/auth/recovery/verify-answer',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          identifier,
+          phone: identifier,
+          securityAnswer
+        })
+      }
+    ),
+
+  recoveryResetPin: (payload: {
+    recoveryToken?: string;
+    identifier?: string;
+    securityAnswer?: string;
+    newPin: string;
+  }) =>
+    request<AuthResult>(
+      '/auth/recovery/reset-pin',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          recoveryToken: payload.recoveryToken,
+          identifier: payload.identifier,
+          phone: payload.identifier,
+          securityAnswer: payload.securityAnswer,
+          newPin: payload.newPin,
+          newPassword: payload.newPin
+        })
+      }
+    ),
+
+  updateSecurityQuestion: (payload: {
+    currentPin: string;
+    securityQuestion: string;
+    securityAnswer: string;
+    preferredLanguage?: LanguagePreference;
+  }) =>
+    request<{ ok: boolean; profile: UserProfile }>(
+      '/account/security-question',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          currentPin: payload.currentPin,
+          currentPassword: payload.currentPin,
+          securityQuestion: payload.securityQuestion,
+          securityAnswer: payload.securityAnswer,
+          ...(payload.preferredLanguage
+            ? { preferredLanguage: payload.preferredLanguage }
+            : {})
+        })
+      },
+      true
     ),
 
   forgotStart: (
@@ -194,7 +260,7 @@ export const api = {
   forgotVerify: (
     challengeId: string,
     code: string,
-    newPassword: string
+    newPin: string
   ) =>
     request<{ ok: boolean }>(
       '/auth/forgot/verify',
@@ -203,20 +269,22 @@ export const api = {
         body: JSON.stringify({
           challengeId,
           code,
-          newPassword
+          newPin,
+          newPassword: newPin
         })
       }
     ),
 
   verifyPassword: (
-    password: string
+    pin: string
   ) =>
     request<{ ok: boolean }>(
       '/account/verify-password',
       {
         method: 'POST',
         body: JSON.stringify({
-          password
+          pin,
+          password: pin
         })
       },
       true
@@ -242,64 +310,35 @@ export const api = {
     ),
 
   changePassword: (
-    currentPassword: string,
-    newPassword: string
+    currentPin: string,
+    newPin: string
   ) =>
-    request<{ ok: boolean }>(
+    request<{ ok: boolean; csrfToken?: string }>(
       '/account/change-password',
       {
         method: 'POST',
         body: JSON.stringify({
-          currentPassword,
-          newPassword
-        })
-      },
-      true
-    ),
-
-  requestDeleteOtp: (
-    password: string
-  ) =>
-    request<{ challengeId: string }>(
-      '/account/delete/request-otp',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          password
-        })
-      },
-      true
-    ),
-
-  verifyDeleteOtp: (
-    challengeId: string,
-    code: string
-  ) =>
-    request<{ deletionToken: string }>(
-      '/account/delete/verify-otp',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          challengeId,
-          code
+          currentPin,
+          currentPassword: currentPin,
+          newPin,
+          newPassword: newPin
         })
       },
       true
     ),
 
   deleteAccount: async (
-    deletionToken: string,
-    confirmation?: string
+    pin: string,
+    confirmation: string
   ) => {
     const result = await request<{ ok: boolean }>(
-      '/account/delete/confirm',
+      '/account/delete',
       {
         method: 'POST',
         body: JSON.stringify({
-          deletionToken,
-          ...(confirmation
-            ? { confirmation }
-            : {})
+          pin,
+          password: pin,
+          confirmation
         })
       },
       true
@@ -360,7 +399,7 @@ export const api = {
           business,
           history,
           ...(language
-            ? { language }
+            ? { preferredLanguage: language }
             : {})
         })
       },

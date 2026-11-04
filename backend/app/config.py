@@ -9,9 +9,9 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./ojaflow.db"
 
-    frontend_origins: str = "http://localhost:5173"
+    frontend_origins: str = "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
 
-    session_secret: str = "development-only-change-me"
+    session_secret: str = "ojaflow-development-only-secret-key-change-before-production-32b"
     session_days: int = 14
 
     cookie_secure: bool = False

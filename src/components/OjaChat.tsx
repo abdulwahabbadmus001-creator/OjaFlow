@@ -133,7 +133,7 @@ function normalizeHref(
     return value;
   }
 
-  return value;
+  return '#';
 }
 
 function createConversationTitle(

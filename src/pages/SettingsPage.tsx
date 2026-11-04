@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import {
   ArrowLeft,
   Bell,
@@ -6,6 +6,7 @@ import {
   ChevronRight,
   CircleHelp,
   Cloud,
+  Copy,
   Download,
   Eye,
   EyeOff,
@@ -32,12 +33,20 @@ import type {
   UserProfile
 } from '../types';
 import { maskPhone } from '../lib/phone';
+import { copyText } from '../lib/clipboard';
 import { api } from '../lib/api';
 import { exportAllAsCsv, exportAllAsJson, exportSummary } from '../lib/exportData';
 import { loadNotifications, saveNotifications } from '../lib/storage';
 import { languageLabel, languageOptions } from '../lib/language';
 import { useI18n } from '../lib/i18n';
 import type { LanguagePreference } from '../types';
+import {
+  LOCALIZED_ANSWER_PLACEHOLDERS,
+  LOCALIZED_CUSTOM_QUESTION_PLACEHOLDERS,
+  LOCALIZED_TRADER_SECURITY_QUESTIONS
+} from './AuthPage';
+
+const PIN_REGEX = /^\d{4}$/;
 
 type Screen =
   | 'root'
@@ -45,6 +54,7 @@ type Screen =
   | 'business'
   | 'security'
   | 'password'
+  | 'security-question'
   | 'appearance'
   | 'language'
   | 'notifications'
@@ -99,10 +109,26 @@ export default function SettingsPage({
     return <BusinessScreen profile={profile} business={business} onSave={onBusiness} onBack={back} />;
   }
   if (screen === 'security') {
-    return <SecurityScreen profile={profile} onBack={back} onChangePassword={() => setScreen('password')} />;
+    return (
+      <SecurityScreen
+        profile={profile}
+        onBack={back}
+        onChangePassword={() => setScreen('password')}
+        onChangeSecurityQuestion={() => setScreen('security-question')}
+      />
+    );
   }
   if (screen === 'password') {
     return <ChangePasswordScreen onBack={() => setScreen('security')} />;
+  }
+  if (screen === 'security-question') {
+    return (
+      <SecurityQuestionScreen
+        profile={profile}
+        onSave={onProfile}
+        onBack={() => setScreen('security')}
+      />
+    );
   }
   if (screen === 'appearance') {
     return <AppearanceScreen theme={theme} setTheme={setTheme} onBack={back} />;
@@ -146,7 +172,7 @@ export default function SettingsPage({
         <SettingsGroup title={tr('Account')}>
           <Row icon={<UserRound />} title={tr('Personal Profile')} sub={tr('Manage your personal account')} onClick={() => setScreen('profile')} />
           <Row icon={<Store />} title={tr('Business Profile')} sub={tr('Manage your store information')} onClick={() => setScreen('business')} />
-          <Row icon={<ShieldCheck />} title={tr('Security & Login')} sub={tr('Password and phone security')} onClick={() => setScreen('security')} />
+          <Row icon={<ShieldCheck />} title={tr('Security & Login')} sub={tr('4-digit PIN and phone security')} onClick={() => setScreen('security')} />
         </SettingsGroup>
 
         <SettingsGroup title={tr('Preferences')}>
@@ -245,16 +271,20 @@ function SimpleScreen({ title, subtitle, onBack, children }: {
 
 function Reauth({ onVerified }: { onVerified: () => void }) {
   const { tr } = useI18n();
-  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function submit() {
+    if (!PIN_REGEX.test(pin)) {
+      setError(tr('Enter your 4-digit PIN.'));
+      return;
+    }
     setBusy(true);
     setError('');
     try {
-      await api.verifyPassword(password);
+      await api.verifyPassword(pin);
       onVerified();
     } catch (e) {
       setError(e instanceof Error ? e.message : tr('Verification failed.'));
@@ -267,18 +297,26 @@ function Reauth({ onVerified }: { onVerified: () => void }) {
     <div className="reauth">
       <div className="round-icon"><ShieldCheck /></div>
       <h2>{tr('Confirm it’s you')}</h2>
-      <p className="muted">{tr('Enter your password before changing sensitive account information.')}</p>
+      <p className="muted">{tr('Enter your 4-digit PIN before changing sensitive account information.')}</p>
       <label>
-        {tr('Password')}
+        {tr('4-digit PIN')}
         <div className="password-field">
-          <input value={password} onChange={event => setPassword(event.target.value)} type={show ? 'text' : 'password'} />
+          <input
+            value={pin}
+            onChange={event => setPin(event.target.value.replace(/\D/g, '').slice(0, 4))}
+            type={show ? 'text' : 'password'}
+            inputMode="numeric"
+            pattern="\d{4}"
+            maxLength={4}
+            placeholder="••••"
+          />
           <button type="button" onClick={() => setShow(value => !value)}>
             {show ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
       </label>
       {error && <div className="form-error">{error}</div>}
-      <button className="primary-btn full" disabled={busy || !password} onClick={submit}>
+      <button className="primary-btn full" disabled={busy || pin.length !== 4} onClick={submit}>
         {busy ? tr('Checking…') : tr('Continue')}
       </button>
     </div>
@@ -294,6 +332,19 @@ function ProfileScreen({ profile, onSave, onBack }: {
   const [editing, setEditing] = useState(false);
   const [verified, setVerified] = useState(false);
   const [status, setStatus] = useState('');
+  const [tagStatus, setTagStatus] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+
+  async function copyOjaTag() {
+    try {
+      await copyText(profile.ojaTag);
+      setTagStatus({ kind: 'success', text: tr('Copied') });
+    } catch (error) {
+      setTagStatus({
+        kind: 'error',
+        text: error instanceof Error ? error.message : tr('Could not copy OjaTag.')
+      });
+    }
+  }
 
   if (editing && !verified) {
     return (
@@ -348,6 +399,18 @@ function ProfileScreen({ profile, onSave, onBack }: {
               <span>{maskPhone(profile.phoneNumber)} • {languageLabel(profile.preferredLanguage)}</span>
             </div>
           </div>
+          <div className="detail-list">
+            <div>
+              <span>{tr('Your unique OjaTag')}</span>
+              <strong>{profile.ojaTag || tr('Unavailable')}</strong>
+            </div>
+          </div>
+          <p className="field-help">{tr('Share this tag or use it to log in.')}</p>
+          <button type="button" className="secondary-btn" disabled={!profile.ojaTag} onClick={() => void copyOjaTag()}>
+            {tagStatus?.kind === 'success' ? <Check size={17} /> : <Copy size={17} />}
+            {tagStatus?.kind === 'success' ? tr('Copied') : tr('Copy')}
+          </button>
+          {tagStatus && <div className={tagStatus.kind === 'success' ? 'inline-status' : 'form-error'}>{tagStatus.text}</div>}
           <div className="privacy-note"><ShieldCheck size={18} /> {tr('Your full phone number is hidden unless it is required for a secure action.')}</div>
           <button className="primary-btn" onClick={() => setEditing(true)}>{tr('Edit profile')}</button>
         </>
@@ -423,10 +486,16 @@ function BusinessScreen({ profile, business, onSave, onBack }: {
   );
 }
 
-function SecurityScreen({ profile, onBack, onChangePassword }: {
+function SecurityScreen({
+  profile,
+  onBack,
+  onChangePassword,
+  onChangeSecurityQuestion
+}: {
   profile: UserProfile;
   onBack: () => void;
   onChangePassword: () => void;
+  onChangeSecurityQuestion: () => void;
 }) {
   const { tr } = useI18n();
   return (
@@ -440,14 +509,190 @@ function SecurityScreen({ profile, onBack, onChangePassword }: {
       </div>
       <div className="settings-action-list">
         <button onClick={onChangePassword}>
-          <span><KeyRound size={18} /><b>{tr('Change password')}</b></span>
+          <span><KeyRound size={18} /><b>{tr('Change 4-digit PIN')}</b></span>
+          <ChevronRight size={18} />
+        </button>
+        <button onClick={onChangeSecurityQuestion}>
+          <span>
+            <ShieldCheck size={18} />
+            <b>{tr('PIN Recovery Security Question')}</b>
+          </span>
           <ChevronRight size={18} />
         </button>
       </div>
+      {profile.securityQuestion && (
+        <div className="info-card compact-info">
+          <strong>{tr('Current security question')}</strong>
+          <p>{profile.securityQuestion}</p>
+        </div>
+      )}
       <div className="info-card compact-info">
         <strong>{tr('Phone number changes')}</strong>
         <p>{tr('Changing the registered phone number is not available from the profile screen yet.')}</p>
       </div>
+    </SimpleScreen>
+  );
+}
+
+function SecurityQuestionScreen({
+  profile,
+  onSave,
+  onBack
+}: {
+  profile: UserProfile;
+  onSave: (profile: UserProfile) => void;
+  onBack: () => void;
+}) {
+  const { tr } = useI18n();
+  const lang: LanguagePreference = profile.preferredLanguage || 'en';
+  const localizedQuestions =
+    LOCALIZED_TRADER_SECURITY_QUESTIONS[lang] ||
+    LOCALIZED_TRADER_SECURITY_QUESTIONS.en;
+  const allPresetQuestions = Object.values(
+    LOCALIZED_TRADER_SECURITY_QUESTIONS
+  ).flat();
+
+  const [questionChoice, setQuestionChoice] = useState<string>(
+    profile.securityQuestion &&
+      localizedQuestions.includes(profile.securityQuestion)
+      ? profile.securityQuestion
+      : profile.securityQuestion &&
+          !allPresetQuestions.includes(profile.securityQuestion)
+        ? '__custom__'
+        : localizedQuestions[0]
+  );
+  const [customQuestion, setCustomQuestion] = useState<string>(
+    profile.securityQuestion &&
+      !allPresetQuestions.includes(profile.securityQuestion)
+      ? profile.securityQuestion
+      : ''
+  );
+  const [status, setStatus] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  function digitsOnly(event: React.FormEvent<HTMLInputElement>) {
+    const cleaned = event.currentTarget.value.replace(/\D/g, '').slice(0, 4);
+    if (event.currentTarget.value !== cleaned) {
+      event.currentTarget.value = cleaned;
+    }
+  }
+
+  return (
+    <SimpleScreen
+      title={tr('PIN Recovery Security Question')}
+      subtitle={tr('Set a personal trade question so you can recover your 4-digit PIN for free anytime.')}
+      onBack={onBack}
+    >
+      <form
+        className="form-stack"
+        onSubmit={event => {
+          event.preventDefault();
+          const formEl = event.currentTarget;
+          void (async () => {
+            const form = new FormData(formEl);
+            const currentPin = String(form.get('currentPin') || '').trim();
+            const securityAnswer = String(form.get('securityAnswer') || '').trim();
+            const finalQuestion = (
+              questionChoice === '__custom__' ? customQuestion : questionChoice
+            ).trim();
+
+            if (!PIN_REGEX.test(currentPin)) {
+              setStatus(tr('Enter your current 4-digit PIN.'));
+              return;
+            }
+            if (finalQuestion.length < 5) {
+              setStatus(tr('Choose or write a valid security question.'));
+              return;
+            }
+            if (securityAnswer.length < 2) {
+              setStatus(tr('Security answer must be at least 2 characters.'));
+              return;
+            }
+
+            setBusy(true);
+            setStatus('');
+            try {
+              const result = await api.updateSecurityQuestion({
+                currentPin,
+                securityQuestion: finalQuestion,
+                securityAnswer,
+                preferredLanguage: lang
+              });
+              onSave(result.profile);
+              formEl.reset();
+              setStatus(tr('Security question and answer updated.'));
+            } catch (e) {
+              setStatus(e instanceof Error ? e.message : tr('Could not update security question.'));
+            } finally {
+              setBusy(false);
+            }
+          })();
+        }}
+      >
+        <label>
+          {tr('Security question')}
+          <select
+            value={questionChoice}
+            onChange={event => setQuestionChoice(event.target.value)}
+          >
+            {localizedQuestions.map(question => (
+              <option key={question} value={question}>
+                {question}
+              </option>
+            ))}
+            <option value="__custom__">
+              {tr('Write my own personal trade question…')}
+            </option>
+          </select>
+        </label>
+
+        {questionChoice === '__custom__' && (
+          <label>
+            {tr('Your custom security question (any language or dialect)')}
+            <input
+              value={customQuestion}
+              onChange={event => setCustomQuestion(event.target.value)}
+              placeholder={LOCALIZED_CUSTOM_QUESTION_PLACEHOLDERS[lang]}
+              minLength={5}
+              maxLength={255}
+              required
+            />
+          </label>
+        )}
+
+        <label>
+          {tr('Security answer')}
+          <input
+            name="securityAnswer"
+            type="text"
+            autoComplete="off"
+            placeholder={LOCALIZED_ANSWER_PLACEHOLDERS[lang]}
+            minLength={2}
+            maxLength={160}
+            required
+          />
+        </label>
+
+        <label>
+          {tr('Current 4-digit PIN')}
+          <input
+            name="currentPin"
+            type="password"
+            inputMode="numeric"
+            pattern="\d{4}"
+            minLength={4}
+            maxLength={4}
+            placeholder="••••"
+            onInput={digitsOnly}
+            required
+          />
+        </label>
+
+        {status && <div className="inline-status">{status}</div>}
+        <button className="primary-btn" disabled={busy}>
+          {busy ? tr('Saving…') : tr('Save security question')}
+        </button>
+      </form>
     </SimpleScreen>
   );
 }
@@ -458,38 +703,47 @@ function ChangePasswordScreen({ onBack }: { onBack: () => void }) {
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
 
+  function digitsOnly(event: React.FormEvent<HTMLInputElement>) {
+    const cleaned = event.currentTarget.value.replace(/\D/g, '').slice(0, 4);
+    if (event.currentTarget.value !== cleaned) {
+      event.currentTarget.value = cleaned;
+    }
+  }
+
   return (
-    <SimpleScreen title={tr('Change Password')} subtitle={tr('Use a strong password you do not reuse elsewhere.')} onBack={onBack}>
+    <SimpleScreen title={tr('Change 4-digit PIN')} subtitle={tr('Choose a 4-digit PIN that is easy for you to remember and hard for others to guess.')} onBack={onBack}>
       <form className="form-stack" onSubmit={event => {
         event.preventDefault();
+        const formEl = event.currentTarget;
         void (async () => {
-          const form = new FormData(event.currentTarget);
-          const currentPassword = String(form.get('currentPassword') || '');
-          const newPassword = String(form.get('newPassword') || '');
-          const confirm = String(form.get('confirm') || '');
-          if (newPassword.length < 8) return setStatus(tr('New password must contain at least 8 characters.'));
-          if (newPassword !== confirm) return setStatus(tr('New passwords do not match.'));
+          const form = new FormData(formEl);
+          const currentPin = String(form.get('currentPassword') || '').trim();
+          const newPin = String(form.get('newPassword') || '').trim();
+          const confirm = String(form.get('confirm') || '').trim();
+          if (!PIN_REGEX.test(currentPin)) return setStatus(tr('Current PIN must be 4 digits.'));
+          if (!PIN_REGEX.test(newPin)) return setStatus(tr('New PIN must be exactly 4 digits.'));
+          if (newPin !== confirm) return setStatus(tr('New PINs do not match.'));
           setBusy(true);
           setStatus('');
           try {
-            await api.changePassword(currentPassword, newPassword);
-            event.currentTarget.reset();
-            setStatus(tr('Password changed successfully.'));
+            await api.changePassword(currentPin, newPin);
+            formEl.reset();
+            setStatus(tr('4-digit PIN updated successfully.'));
           } catch (e) {
-            setStatus(e instanceof Error ? e.message : tr('Could not change password.'));
+            setStatus(e instanceof Error ? e.message : tr('Could not change PIN.'));
           } finally {
             setBusy(false);
           }
         })();
       }}>
-        <label>{tr('Current password')}<input name="currentPassword" type={show ? 'text' : 'password'} required /></label>
-        <label>{tr('New password')}<input name="newPassword" type={show ? 'text' : 'password'} minLength={8} required /></label>
-        <label>{tr('Confirm new password')}<input name="confirm" type={show ? 'text' : 'password'} minLength={8} required /></label>
+        <label>{tr('Current 4-digit PIN')}<input name="currentPassword" type={show ? 'text' : 'password'} inputMode="numeric" pattern="\d{4}" minLength={4} maxLength={4} placeholder="••••" onInput={digitsOnly} required /></label>
+        <label>{tr('New 4-digit PIN')}<input name="newPassword" type={show ? 'text' : 'password'} inputMode="numeric" pattern="\d{4}" minLength={4} maxLength={4} placeholder="••••" onInput={digitsOnly} required /></label>
+        <label>{tr('Confirm new 4-digit PIN')}<input name="confirm" type={show ? 'text' : 'password'} inputMode="numeric" pattern="\d{4}" minLength={4} maxLength={4} placeholder="••••" onInput={digitsOnly} required /></label>
         <button className="text-btn form-text-button" type="button" onClick={() => setShow(value => !value)}>
-          {show ? <EyeOff size={17} /> : <Eye size={17} />} {show ? tr('Hide passwords') : tr('Show passwords')}
+          {show ? <EyeOff size={17} /> : <Eye size={17} />} {show ? tr('Hide PIN') : tr('Show PIN')}
         </button>
         {status && <div className="inline-status">{status}</div>}
-        <button className="primary-btn" disabled={busy}>{busy ? tr('Updating…') : tr('Update password')}</button>
+        <button className="primary-btn" disabled={busy}>{busy ? tr('Updating…') : tr('Update 4-digit PIN')}</button>
       </form>
     </SimpleScreen>
   );
@@ -785,7 +1039,7 @@ function HelpScreen({
           <label>
             {tr('Describe the issue')}
             <textarea name="message" rows={5} minLength={5} maxLength={5000} required />
-            <span className="field-help">{tr('Do not include your password or verification code.')}</span>
+            <span className="field-help">{tr('Do not include your 4-digit PIN or verification code.')}</span>
           </label>
           {status && (
             <div className={status.kind === 'error' ? 'form-error' : 'inline-status'} role="status">
@@ -807,10 +1061,10 @@ function AboutScreen({ onBack }: { onBack: () => void }) {
     <SimpleScreen title={tr('About OjaFlow')} subtitle={tr('Business clarity for everyday trade.')} onBack={onBack}>
       <div className="about-hero">
         <img
-  src="/ojaflow-of.svg?v=1"
-  alt="OjaFlow"
-  className="brand-logo brand-logo-giant"
-/>
+          src="/ojaflow-of.svg?v=1"
+          alt="OjaFlow"
+          className="brand-logo brand-logo-giant"
+        />
         <div><strong>OjaFlow</strong><span>Version 1.1</span></div>
       </div>
       <p className="legal-copy">{tr('OjaFlow is designed to help small traders understand and manage sales, stock, expenses, customers and credit without requiring complex accounting software.')}</p>
@@ -831,7 +1085,7 @@ function LogoutScreen({ onBack, onLogout }: { onBack: () => void; onLogout: () =
       <div className="confirmation-card">
         <div className="round-icon"><LogOut /></div>
         <h2>{tr('Log out of OjaFlow?')}</h2>
-        <p>{tr('Your cloud business data will stay associated with your account. You will need your phone number and password to sign in again.')}</p>
+        <p>{tr('Your cloud business data will stay associated with your account. You will need your phone number and 4-digit PIN to sign in again.')}</p>
         <div className="confirmation-actions">
           <button className="secondary-btn" onClick={onBack}>{tr('Cancel')}</button>
           <button className="primary-btn" onClick={onLogout}>{tr('Log out')}</button>
@@ -847,7 +1101,7 @@ function DeleteScreen({ profile, onBack, onDelete }: {
   onDelete: () => void;
 }) {
   const { tr } = useI18n();
-  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [understood, setUnderstood] = useState(false);
   const [error, setError] = useState('');
@@ -855,7 +1109,7 @@ function DeleteScreen({ profile, onBack, onDelete }: {
 
   const phrase = 'DELETE MY ACCOUNT';
   const ready =
-    password.length > 0 &&
+    PIN_REGEX.test(pin) &&
     confirmation.trim().toUpperCase() === phrase &&
     understood;
 
@@ -868,7 +1122,7 @@ function DeleteScreen({ profile, onBack, onDelete }: {
       setError('');
 
       await api.deleteAccount(
-        password,
+        pin,
         confirmation
       );
 
@@ -887,7 +1141,7 @@ function DeleteScreen({ profile, onBack, onDelete }: {
   return (
     <SimpleScreen
       title={tr('Delete Account')}
-      subtitle={tr('Permanent removal requires your password and explicit confirmation.')}
+      subtitle={tr('Permanent removal requires your 4-digit PIN and explicit confirmation.')}
       onBack={onBack}
     >
       <div className="danger-box">
@@ -910,12 +1164,16 @@ function DeleteScreen({ profile, onBack, onDelete }: {
         </label>
 
         <label>
-          {tr('Enter your current password')}
+          {tr('Enter your current 4-digit PIN')}
           <input
             type="password"
-            value={password}
+            inputMode="numeric"
+            pattern="\d{4}"
+            maxLength={4}
+            placeholder="••••"
+            value={pin}
             onChange={event =>
-              setPassword(event.target.value)
+              setPin(event.target.value.replace(/\D/g, '').slice(0, 4))
             }
             autoComplete="current-password"
           />
@@ -966,5 +1224,5 @@ function DeleteScreen({ profile, onBack, onDelete }: {
         </button>
       </div>
     </SimpleScreen>
-   );
+  );
 }

@@ -6,9 +6,8 @@ from .identity import generate_ojatag
 
 def ensure_ojatag_schema(engine: Engine) -> None:
     """
-    Add and backfill the OjaTag column
-    without deleting or replacing existing
-    OjaFlow user/business data.
+    Add and backfill OjaTag, PIN brute-force protection, and security-question
+    PIN recovery columns without deleting or replacing existing OjaFlow data.
     """
 
     inspector = inspect(engine)
@@ -21,6 +20,40 @@ def ensure_ojatag_schema(engine: Engine) -> None:
     with engine.begin() as connection:
         if "oja_tag" not in columns:
             connection.execute(text("ALTER TABLE users ADD COLUMN oja_tag VARCHAR(20)"))
+
+        if "security_question" not in columns:
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN security_question VARCHAR(255)")
+            )
+
+        if "security_answer_hash" not in columns:
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN security_answer_hash TEXT")
+            )
+
+        if "failed_pin_attempts" not in columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN failed_pin_attempts INTEGER NOT NULL DEFAULT 0"
+                )
+            )
+
+        if "locked_until_epoch" not in columns:
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN locked_until_epoch INTEGER")
+            )
+
+        if "failed_recovery_attempts" not in columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN failed_recovery_attempts INTEGER NOT NULL DEFAULT 0"
+                )
+            )
+
+        if "recovery_locked_until_epoch" not in columns:
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN recovery_locked_until_epoch INTEGER")
+            )
 
         existing = {
             row[0]

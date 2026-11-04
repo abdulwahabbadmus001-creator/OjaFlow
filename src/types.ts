@@ -53,6 +53,8 @@ export interface UserProfile {
   onboardingCompleted: boolean;
 
   businessProfileCompleted: boolean;
+
+  securityQuestion?: string;
 }
 
 
