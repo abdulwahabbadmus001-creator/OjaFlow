@@ -119,9 +119,7 @@ def ensure_ojatag_schema(engine: Engine) -> None:
                 )
             if "replied_at" not in ticket_columns:
                 connection.execute(
-                    text(
-                        "ALTER TABLE support_tickets ADD COLUMN replied_at DATETIME"
-                    )
+                    text("ALTER TABLE support_tickets ADD COLUMN replied_at TIMESTAMP")
                 )
 
     _seed_system_admin(engine)
@@ -152,9 +150,7 @@ def _seed_system_admin(engine: Engine) -> None:
         )
         raw_pw = admin_password.encode("utf-8")[:72]
         if existing_admin is None:
-            pw_hash = bcrypt.hashpw(
-                raw_pw, bcrypt.gensalt(rounds=12)
-            ).decode("utf-8")
+            pw_hash = bcrypt.hashpw(raw_pw, bcrypt.gensalt(rounds=12)).decode("utf-8")
             session.add(
                 AdminUser(
                     email=admin_email,
