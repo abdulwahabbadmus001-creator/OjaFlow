@@ -1,12 +1,11 @@
 [build]
-  # Netlify reads redirects after the build, so the build command injects the
-  # public backend origin from the OJAFLOW_API_ORIGIN environment variable.
-  command = "sed -i \"s|OJAFLOW_API_ORIGIN|${OJAFLOW_API_ORIGIN}|g\" netlify.toml && npm run build"
+  # Pass VITE_API_URL directly from Netlify environment variables into the Vite build
+  command = "npm run build"
   publish = "dist"
 
 [[redirects]]
   from = "/api/*"
-  to = "OJAFLOW_API_ORIGIN/api/:splat"
+  to = "https://ojaflow-api.onrender.com/api/:splat"
   status = 200
   force = true
 
