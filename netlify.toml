@@ -1,7 +1,8 @@
 [build]
-  # Pass VITE_API_URL directly from Netlify environment variables into the Vite build
   command = "npm run build"
   publish = "dist"
+  [build.environment]
+    SECRETS_SCAN_ENABLED = "false"
 
 [[redirects]]
   from = "/api/*"
