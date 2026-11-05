@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
+  Eye,
+  EyeOff,
   KeyRound,
   Lock,
   LogOut,
@@ -17,7 +19,7 @@ import {
   Users
 } from 'lucide-react';
 import BrandLogo from '../components/BrandLogo';
-import { api, clearAdminCsrf } from '../lib/api';
+import { api, clearAdminCsrf, hasAdminToken } from '../lib/api';
 import type {
   AdminAccount,
   AdminOverviewStats,
@@ -36,6 +38,7 @@ export default function AdminPage({
   const [checking, setChecking] = useState(true);
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [tab, setTab] = useState<'users' | 'tickets'>('users');
   const [stats, setStats] = useState<AdminOverviewStats>({
@@ -71,6 +74,10 @@ export default function AdminPage({
   const [sendingTicketId, setSendingTicketId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!hasAdminToken()) {
+      setChecking(false);
+      return;
+    }
     void api
       .adminSession()
       .then(async res => {
@@ -323,13 +330,23 @@ export default function AdminPage({
 
             <label>
               System Admin Password
-              <input
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••••••"
-                required
-              />
+              <div className="password-field">
+                <input
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="••••••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </label>
 
             {loginError && <div className="form-error">{loginError}</div>}

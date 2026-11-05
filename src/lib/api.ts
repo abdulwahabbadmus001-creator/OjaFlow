@@ -16,18 +16,31 @@ const API_BASE = (
 ).replace(/\/$/, '');
 
 const CSRF_KEY = 'ojaflow:csrf';
+const SESSION_TOKEN_KEY = 'ojaflow:session_token';
 const ADMIN_CSRF_KEY = 'ojaflow:admin:csrf';
+const ADMIN_TOKEN_KEY = 'ojaflow:admin:session_token';
 
 let csrfToken =
   sessionStorage.getItem(CSRF_KEY) || '';
+let sessionToken =
+  sessionStorage.getItem(SESSION_TOKEN_KEY) || '';
 let adminCsrfToken =
   sessionStorage.getItem(ADMIN_CSRF_KEY) || '';
+let adminSessionToken =
+  sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
 
 function rememberCsrf(value?: string) {
   if (!value) return;
 
   csrfToken = value;
   sessionStorage.setItem(CSRF_KEY, value);
+}
+
+function rememberSessionToken(value?: string) {
+  if (!value) return;
+
+  sessionToken = value;
+  sessionStorage.setItem(SESSION_TOKEN_KEY, value);
 }
 
 function rememberAdminCsrf(value?: string) {
@@ -37,14 +50,29 @@ function rememberAdminCsrf(value?: string) {
   sessionStorage.setItem(ADMIN_CSRF_KEY, value);
 }
 
+function rememberAdminToken(value?: string) {
+  if (!value) return;
+
+  adminSessionToken = value;
+  sessionStorage.setItem(ADMIN_TOKEN_KEY, value);
+}
+
 export function clearCsrf() {
   csrfToken = '';
+  sessionToken = '';
   sessionStorage.removeItem(CSRF_KEY);
+  sessionStorage.removeItem(SESSION_TOKEN_KEY);
 }
 
 export function clearAdminCsrf() {
   adminCsrfToken = '';
+  adminSessionToken = '';
   sessionStorage.removeItem(ADMIN_CSRF_KEY);
+  sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+export function hasAdminToken(): boolean {
+  return Boolean(adminSessionToken || sessionStorage.getItem(ADMIN_TOKEN_KEY));
 }
 
 async function request<T>(
@@ -53,9 +81,18 @@ async function request<T>(
   csrf = false
 ): Promise<T> {
   const headers = new Headers(options.headers || {});
+  const isAdminPath = path.startsWith('/admin');
 
   if (options.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
+  }
+
+  if (isAdminPath) {
+    if (adminSessionToken && !headers.has('X-Admin-Authorization')) {
+      headers.set('X-Admin-Authorization', `Bearer ${adminSessionToken}`);
+    }
+  } else if (sessionToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${sessionToken}`);
   }
 
   if (csrf && csrfToken) {
@@ -93,8 +130,11 @@ async function request<T>(
     throw new Error(message);
   }
 
-  if (data.csrfToken) {
+  if (!isAdminPath && data.csrfToken) {
     rememberCsrf(data.csrfToken);
+  }
+  if (!isAdminPath && data.accessToken) {
+    rememberSessionToken(data.accessToken);
   }
 
   return data as T;
@@ -482,11 +522,18 @@ export const api = {
     const res = await request<{
       admin: AdminAccount;
       csrfToken: string;
+      accessToken?: string;
     }>('/admin/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({
+        email: email.trim(),
+        password: password.trim()
+      })
     });
     rememberAdminCsrf(res.csrfToken);
+    if (res.accessToken) {
+      rememberAdminToken(res.accessToken);
+    }
     return res;
   },
 

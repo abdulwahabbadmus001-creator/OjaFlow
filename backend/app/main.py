@@ -46,6 +46,8 @@ app.add_middleware(
     ],
     allow_headers=[
         "Content-Type",
+        "Authorization",
+        "X-Admin-Authorization",
         "X-CSRF-Token",
         "X-Admin-CSRF-Token",
     ],

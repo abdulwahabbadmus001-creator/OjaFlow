@@ -78,6 +78,7 @@ def auth_response(response: Response, user: User) -> dict:
         "business": business_profile(user.business),
         "store": store_snapshot(user.store),
         "csrfToken": csrf,
+        "accessToken": token,
     }
 
 
