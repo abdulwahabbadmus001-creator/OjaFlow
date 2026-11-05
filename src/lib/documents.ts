@@ -99,19 +99,99 @@ export function downloadInvoice(business: BusinessProfile, invoice: Invoice, lan
   downloadHtml(`${invoice.invoiceNumber}.html`, invoiceHtml(business, invoice, language));
 }
 
-export function invoiceWhatsAppUrl(invoice: Invoice, business: BusinessProfile, language: LanguagePreference = 'en') {
-  if (!invoice.customerPhone) throw new Error(t(language, 'Add a phone number for this customer before sharing on WhatsApp.'));
+export function formatSaleWhatsAppReceipt(
+  business: BusinessProfile,
+  sale: Sale,
+  language: LanguagePreference = 'en'
+): string {
   const locale = localeForLanguage(language);
-  const message = t(
-    language,
-    'Hello {customer}, {business} has prepared invoice {invoice} for {amount}{due}. Thank you.',
-    {
-      customer: invoice.customerName,
-      business: business.businessName,
-      invoice: invoice.invoiceNumber,
-      amount: money(invoice.total),
-      due: invoice.dueDate ? `, ${t(language, 'due')} ${new Date(`${invoice.dueDate}T00:00:00`).toLocaleDateString(locale)}` : ''
-    }
+  const receiptNo = `RCPT-${sale.id.slice(0, 8).toUpperCase()}`;
+  const dateStr = new Date(sale.createdAt).toLocaleString(locale, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+  const customerName = sale.customer?.trim() || t(language, 'Walk-in customer');
+
+  const lines = [
+    `🧾 *SALES RECEIPT — ${business.businessName.toUpperCase()}*`,
+    ...(business.phone ? [`Tel: ${business.phone}`] : []),
+    `Receipt No: *${receiptNo}*`,
+    `Date: ${dateStr}`,
+    `Customer: ${customerName}`,
+    `────────────────────`,
+    `• *${sale.itemName}*`,
+    `  Qty: ${sale.quantity} × ${money(sale.unitPrice)}`,
+    `  Amount: *${money(sale.total)}*`,
+    `────────────────────`,
+    `*TOTAL PAID: ${money(sale.total)}*`,
+    `Payment Method: ${sale.paymentMethod}`,
+    ``,
+    `Thank you for patronizing *${business.businessName}*!`,
+    `_Generated with OjaFlow_`
+  ];
+
+  return lines.join('\n');
+}
+
+export function saleWhatsAppUrl(
+  business: BusinessProfile,
+  sale: Sale,
+  customerPhone?: string,
+  language: LanguagePreference = 'en'
+): string {
+  const message = formatSaleWhatsAppReceipt(business, sale, language);
+  if (customerPhone && customerPhone.trim()) {
+    return whatsappUrl(customerPhone, message);
+  }
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}
+
+export function formatInvoiceWhatsAppText(
+  invoice: Invoice,
+  business: BusinessProfile,
+  language: LanguagePreference = 'en'
+): string {
+  const locale = localeForLanguage(language);
+  const issuedDate = new Date(invoice.createdAt).toLocaleDateString(locale);
+  const dueDate = invoice.dueDate
+    ? new Date(`${invoice.dueDate}T00:00:00`).toLocaleDateString(locale)
+    : t(language, 'On receipt');
+
+  const itemLines = invoice.items.map(
+    item =>
+      `• *${item.description}*\n  Qty: ${item.quantity} × ${money(
+        item.unitPrice
+      )} = *${money(item.quantity * item.unitPrice)}*`
   );
-  return whatsappUrl(invoice.customerPhone, message);
+
+  const lines = [
+    `📄 *INVOICE — ${business.businessName.toUpperCase()}*`,
+    ...(business.phone ? [`Tel: ${business.phone}`] : []),
+    `Invoice No: *${invoice.invoiceNumber}*`,
+    `Customer: ${invoice.customerName}`,
+    `Date: ${issuedDate}`,
+    `Due: ${dueDate}`,
+    `────────────────────`,
+    ...itemLines,
+    `────────────────────`,
+    `*TOTAL DUE: ${money(invoice.total)}*`,
+    ...(invoice.note ? [``, `Note: ${invoice.note}`] : []),
+    ``,
+    `Thank you for doing business with *${business.businessName}*!`,
+    `_Generated with OjaFlow_`
+  ];
+
+  return lines.join('\n');
+}
+
+export function invoiceWhatsAppUrl(
+  invoice: Invoice,
+  business: BusinessProfile,
+  language: LanguagePreference = 'en'
+) {
+  const message = formatInvoiceWhatsAppText(invoice, business, language);
+  if (invoice.customerPhone && invoice.customerPhone.trim()) {
+    return whatsappUrl(invoice.customerPhone, message);
+  }
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }

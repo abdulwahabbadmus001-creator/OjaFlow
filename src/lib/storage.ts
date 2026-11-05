@@ -46,10 +46,12 @@ export function loadStore(uid: string): StoreData {
 }
 
 export function saveStore(uid: string, data: StoreData) {
+  const k = key(uid, 'store');
   localStorage.setItem(
-    key(uid, 'store'),
+    k,
     JSON.stringify(data)
   );
+  mirrorToIndexedDB(k, data);
 }
 
 export function loadBusiness(
@@ -142,6 +144,83 @@ export function saveNotifications(
     key(uid, 'notifications'),
     JSON.stringify(preferences)
   );
+}
+
+export interface QueuedOfflineMutation {
+  id: string;
+  kind: 'sale' | 'expense' | 'product' | 'debt' | 'customer' | 'invoice';
+  queuedAt: string;
+}
+
+const IDB_NAME = 'ojaflow_offline_db';
+const IDB_STORE = 'kv_cache';
+
+function mirrorToIndexedDB(k: string, value: unknown): void {
+  if (typeof window === 'undefined' || !('indexedDB' in window)) return;
+  try {
+    const req = window.indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = () => {
+      try {
+        const db = req.result;
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(value, k);
+        tx.oncomplete = () => db.close();
+      } catch {
+        // ignore IDB write error
+      }
+    };
+  } catch {
+    // ignore IDB open error
+  }
+}
+
+export function loadOfflineQueue(uid: string): QueuedOfflineMutation[] {
+  if (!uid) return [];
+  const raw = localStorage.getItem(key(uid, 'offline-queue'));
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as QueuedOfflineMutation[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function enqueueOfflineMutation(
+  uid: string,
+  kind: QueuedOfflineMutation['kind'],
+  recordId: string
+): number {
+  if (!uid) return 0;
+  const current = loadOfflineQueue(uid);
+  const exists = current.some(item => item.id === recordId && item.kind === kind);
+  const next: QueuedOfflineMutation[] = exists
+    ? current
+    : [
+        ...current,
+        {
+          id: recordId,
+          kind,
+          queuedAt: new Date().toISOString()
+        }
+      ];
+  const k = key(uid, 'offline-queue');
+  localStorage.setItem(k, JSON.stringify(next));
+  mirrorToIndexedDB(k, next);
+  return next.length;
+}
+
+export function clearOfflineQueue(uid: string): void {
+  if (!uid) return;
+  const k = key(uid, 'offline-queue');
+  localStorage.removeItem(k);
+  mirrorToIndexedDB(k, []);
 }
 
 export function saveLastSync(

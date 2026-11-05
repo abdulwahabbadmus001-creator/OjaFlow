@@ -33,7 +33,8 @@ import {
   downloadReceipt,
   invoiceWhatsAppUrl,
   printInvoice,
-  printReceipt
+  printReceipt,
+  saleWhatsAppUrl
 } from '../lib/documents';
 import { shareOrDownloadSaleReceiptImage } from '../lib/receiptImage';
 import { useI18n } from '../lib/i18n';
@@ -60,7 +61,21 @@ export default function SalesPage({
   updateInvoice: (item: Invoice) => void;
 }) {
   const { tr, locale } = useI18n();
-  const [tab, setTab] = useState<'sales' | 'expenses' | 'customers' | 'invoices'>('sales');
+  const [tab, setTab] = useState<'sales' | 'expenses' | 'customers' | 'invoices'>(() => {
+    const requested = sessionStorage.getItem('ojaflow:sales-tab');
+    if (requested) {
+      sessionStorage.removeItem('ojaflow:sales-tab');
+      if (
+        requested === 'sales' ||
+        requested === 'expenses' ||
+        requested === 'customers' ||
+        requested === 'invoices'
+      ) {
+        return requested;
+      }
+    }
+    return 'sales';
+  });
   const [modal, setModal] = useState<null | 'sale' | 'expense' | 'customer' | 'invoice'>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [query, setQuery] = useState('');
@@ -75,19 +90,13 @@ export default function SalesPage({
 
   function openReceiptWhatsApp(sale: Sale) {
     const customer = receiptCustomer(sale);
-    if (!customer?.phone) return;
-    openWhatsApp(
-      customer.phone,
-      tr(
-        'Hello {customer}, thank you for your purchase from {business}. Your receipt total is {amount}. Receipt reference: {reference}.',
-        {
-          customer: customer.name,
-          business: business.businessName,
-          amount: money(sale.total),
-          reference: `RCPT-${sale.id.slice(0, 8).toUpperCase()}`
-        }
-      )
+    const url = saleWhatsAppUrl(
+      business,
+      sale,
+      customer?.phone,
+      preferredLanguage
     );
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   return (
@@ -132,6 +141,22 @@ export default function SalesPage({
                   <strong className="right">{money(sale.total)}</strong>
                   <span className="row-actions right">
                     <button
+                      type="button"
+                      className="secondary-btn compact whatsapp-btn"
+                      title={tr('Share via WhatsApp')}
+                      onClick={() => openReceiptWhatsApp(sale)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.35rem 0.65rem',
+                        fontSize: '0.78rem'
+                      }}
+                    >
+                      <MessageCircle size={15} />
+                      <span>{tr('Share via WhatsApp')}</span>
+                    </button>
+                    <button
                       className="icon-action"
                       title={tr('Share or download PNG image receipt')}
                       onClick={() =>
@@ -142,7 +167,6 @@ export default function SalesPage({
                     </button>
                     <button className="icon-action" title={tr('Open receipt')} onClick={() => printReceipt(business, sale, preferredLanguage)}><Printer size={16} /></button>
                     <button className="icon-action" title={tr('Download receipt')} onClick={() => downloadReceipt(business, sale, preferredLanguage)}><Download size={16} /></button>
-                    {customer?.phone && <button className="icon-action whatsapp" title={tr('Send receipt summary on WhatsApp')} onClick={() => openReceiptWhatsApp(sale)}><MessageCircle size={16} /></button>}
                   </span>
                 </div>
               );
@@ -436,9 +460,20 @@ function InvoiceList({
           </div>
           <strong className="invoice-total">{money(invoice.total)}</strong>
           <div className="invoice-actions">
+            <button
+              className="secondary-btn compact whatsapp-btn"
+              onClick={() =>
+                window.open(
+                  invoiceWhatsAppUrl(invoice, business, language),
+                  '_blank',
+                  'noopener,noreferrer'
+                )
+              }
+            >
+              <Send size={16} /> {tr('Share via WhatsApp')}
+            </button>
             <button className="secondary-btn compact" onClick={() => printInvoice(business, invoice, language)}><Printer size={16} /> {tr('Print / PDF')}</button>
             <button className="secondary-btn compact" onClick={() => downloadInvoice(business, invoice, language)}><Download size={16} /> {tr('Download')}</button>
-            {invoice.customerPhone && <button className="secondary-btn compact whatsapp-btn" onClick={() => window.open(invoiceWhatsAppUrl(invoice, business, language), '_blank', 'noopener,noreferrer')}><Send size={16} /> WhatsApp</button>}
             {invoice.status !== 'paid' && <button className="primary-btn compact" onClick={() => onUpdate({ ...invoice, status: 'paid' })}><CheckCircle2 size={16} /> {tr('Mark paid')}</button>}
           </div>
         </article>

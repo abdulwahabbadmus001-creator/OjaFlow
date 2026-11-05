@@ -1,23 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LanguagePreference } from '../types';
-import { api } from './api';
 
 /**
- * Use 'en-NG' (Nigerian English acoustic model) for both English and Nigerian Pidgin
- * because mobile/desktop browser engines have a high-accuracy trained acoustic model
- * for 'en-NG', whereas 'pcm-NG' is unrecognized by most browser engines.
+ * Dynamic BCP-47 locale mapping tailored for Nigerian market traders.
+ * Uses the user's selected language preference directly, with automatic
+ * runtime fallback to 'en-NG' if a mobile OS lacks a specific local pack.
  */
 export const SPEECH_LANG_MAP: Record<LanguagePreference, string> = {
   en: 'en-NG',
-  pcm: 'en-NG',
+  pcm: 'pcm-NG',
   yo: 'yo-NG',
   ha: 'ha-NG',
   ig: 'ig-NG'
 };
 
 export const SPEECH_LANG_LABELS: Record<LanguagePreference, string> = {
-  en: 'English (NG)',
-  pcm: 'Naija Pidgin (NG)',
+  en: 'English (en-NG)',
+  pcm: 'Pidgin (pcm-NG)',
   yo: 'Yorùbá (yo-NG)',
   ha: 'Hausa (ha-NG)',
   ig: 'Igbo (ig-NG)'
@@ -55,8 +54,19 @@ interface SpeechRecognitionInstance extends EventTarget {
   interimResults: boolean;
   maxAlternatives: number;
   onstart: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
-  onresult: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionErrorEventLike) => void) | null;
+  onaudiostart?: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
+  onsoundstart?: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
+  onspeechstart?: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
+  onspeechend?: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
+  onresult:
+    | ((this: SpeechRecognitionInstance, ev: SpeechRecognitionEventLike) => void)
+    | null;
+  onerror:
+    | ((
+        this: SpeechRecognitionInstance,
+        ev: SpeechRecognitionErrorEventLike
+      ) => void)
+    | null;
   onend: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
   start(): void;
   stop(): void;
@@ -101,8 +111,9 @@ type LocalizedSpeechCopy = {
 
 const SPEECH_COPY: Record<LanguagePreference, LocalizedSpeechCopy> = {
   en: {
-    listeningTitle: 'Listening (Noise Filter Active)… Speak clearly',
-    listeningHint: 'Background noise is filtered out. Tap Done when finished.',
+    listeningTitle: 'Listening… Speak clearly into your mic',
+    listeningHint:
+      'Say a sale, expense, debt, or question. Tap Done when finished.',
     transcribingTitle: 'Sharpening voice transcript…',
     unsupportedTitle: 'Voice input unavailable on this browser',
     unsupportedMessage:
@@ -118,16 +129,17 @@ const SPEECH_COPY: Record<LanguagePreference, LocalizedSpeechCopy> = {
     noMicTitle: 'No microphone detected',
     noMicMessage:
       'We could not access your device microphone. Check that another app is not holding the mic, or type below.',
-    noSpeechTitle: 'Only background noise detected',
+    noSpeechTitle: 'No clear speech detected',
     noSpeechMessage:
-      'We filtered out background sound but did not catch clear speech. Speak a little closer to your microphone or type below.',
+      'We filtered out background sound but did not catch clear words. Speak a little closer to your microphone or type below.',
     networkTitle: 'Network needed for voice transcription',
     networkMessage:
       'Voice transcription needs an active data connection. You can still type offline record questions below!'
   },
   pcm: {
-    listeningTitle: 'I dey listen (Noise Filter dey on)… Talk now',
-    listeningHint: 'Background noise don block. Tap Done wen you finish talk.',
+    listeningTitle: 'I dey listen… Talk your market matter clear',
+    listeningHint:
+      'Talk wetin you sell, expense, debt, or question. Tap Done wen you finish.',
     transcribingTitle: 'Dey sharpen wetin you talk…',
     unsupportedTitle: 'Voice typing no dey work for dis browser',
     unsupportedMessage:
@@ -143,16 +155,17 @@ const SPEECH_COPY: Record<LanguagePreference, LocalizedSpeechCopy> = {
     noMicTitle: 'We no see microphone',
     noMicMessage:
       'Phone microphone no gree open. Check say anoda call or app no dey hold am, or type your message below.',
-    noSpeechTitle: 'Na only background noise we hear',
+    noSpeechTitle: 'We no hear your voice clear',
     noSpeechMessage:
-      'We block background noise comot, but we no hear your voice clear. Abeg talk near your phone mic small, or type below.',
+      'Background noise don comot, but we no hear clear words. Abeg talk near your phone mic small, or type below.',
     networkTitle: 'Network needed for voice mic',
     networkMessage:
       'Voice-to-text need small data connection. You fit type your question below — offline record check still dey work!'
   },
   yo: {
-    listeningTitle: 'Mo ń tẹ́tí (Àlẹ̀mọ́ Ariwo ń ṣiṣẹ́)… Sọ̀rọ̀ báyìí',
-    listeningHint: 'A ti dènà ariwo àyíká. Tẹ Done nígbà tí o bá parí.',
+    listeningTitle: 'Mo ń tẹ́tí… Sọ̀rọ̀ ketekete sí maikirofóònù rẹ',
+    listeningHint:
+      'Sọ ọjà tí o tà, ìnáwó, gbèsè, tàbí ìbéèrè rẹ. Tẹ Done nígbà tí o bá parí.',
     transcribingTitle: 'Mo ń ṣàtúnṣe ohùn rẹ…',
     unsupportedTitle: 'Ohùn kò ṣiṣẹ́ lórí aṣàwákiri yìí',
     unsupportedMessage:
@@ -168,16 +181,17 @@ const SPEECH_COPY: Record<LanguagePreference, LocalizedSpeechCopy> = {
     noMicTitle: 'A kò rí maikirofóònù',
     noMicMessage:
       'A kò lè lo maikirofóònù rẹ. Rí i dájú pé ètò mìíràn kò lo ó.',
-    noSpeechTitle: 'Ariwo àyíká nìkan la gbọ́',
+    noSpeechTitle: 'A kò gbọ́ ohùn rẹ ketekete',
     noSpeechMessage:
-      'A kò gbọ́ ohùn rẹ ketekete. Jọ̀wọ́ sọ̀rọ̀ súnmọ́ fóònù rẹ tàbí kí o tẹ ìbéèrè rẹ sí ìsàlẹ̀.',
+      'Jọ̀wọ́ sọ̀rọ̀ súnmọ́ fóònù rẹ tàbí kí o tẹ ìbéèrè rẹ sí ìsàlẹ̀.',
     networkTitle: 'A nílò intanẹ́ẹ̀tì fún ohùn sí ọ̀rọ̀',
     networkMessage:
       'Ohùn sí ọ̀rọ̀ nílò intanẹ́ẹ̀tì. Jọ̀wọ́ ṣàyẹ̀wò dátà rẹ tàbí kí o tẹ ìbéèrè rẹ sí ìsàlẹ̀.'
   },
   ha: {
-    listeningTitle: 'Ina sauraro (An toshe hayaniya)… Yi magana yanzu',
-    listeningHint: 'An tace hayaniyar gefe. Danna Done idan ka gama.',
+    listeningTitle: 'Ina sauraro… Yi magana da kyau a makirfo',
+    listeningHint:
+      'Faɗi ciniki, kashe kuɗi, bashi, ko tambaya. Danna Done idan ka gama.',
     transcribingTitle: 'Ana gyara rubutun muryarka…',
     unsupportedTitle: 'Magana da murya ba ta aiki a wannan burauza',
     unsupportedMessage:
@@ -193,16 +207,17 @@ const SPEECH_COPY: Record<LanguagePreference, LocalizedSpeechCopy> = {
     noMicTitle: 'Ba a sami makirfo ba',
     noMicMessage:
       'Ba mu iya buɗe makirfon wayarka ba. Duba ko wata manhaja tana amfani da shi.',
-    noSpeechTitle: 'Hayaniyar gefe kawai aka ji',
+    noSpeechTitle: 'Ba a ji muryarka sosai ba',
     noSpeechMessage:
-      'Ba a ji muryarka sosai ba. Yi magana kusa da makirfo ko ka rubuta tambayarka a ƙasa.',
+      'Yi magana kusa da makirfo ko ka rubuta tambayarka a ƙasa.',
     networkTitle: 'Ana buƙatar intanet',
     networkMessage:
       'Juya murya zuwa rubutu yana buƙatar data. Duba haɗin intanet ko ka rubuta a ƙasa.'
   },
   ig: {
-    listeningTitle: 'Ana m ege ntị (Egbochiri mkpọtụ)… Kwuo okwu ugbu a',
-    listeningHint: 'Anyị ewepụla mkpọtụ gburugburu. Pịa Done mgbe ị kwuchara.',
+    listeningTitle: 'Ana m ege ntị… Kwuo okwu nke ọma n’igwe okwu',
+    listeningHint:
+      'Kwuo ahịa ị resịrị, mmefu, ụgwọ, ma ọ bụ ajụjụ. Pịa Done mgbe ị kwuchara.',
     transcribingTitle: 'Ana edozi okwu gị…',
     unsupportedTitle: 'Iji olu ede ihe anaghị arụ ọrụ na bọraụza a',
     unsupportedMessage:
@@ -218,9 +233,9 @@ const SPEECH_COPY: Record<LanguagePreference, LocalizedSpeechCopy> = {
     noMicTitle: 'Ahụghị igwe okwu ọ bụla',
     noMicMessage:
       'Anyị enweghị ike ịnweta igwe okwu gị. Lelee ma ngwa ọzọ ọ na-eji ya.',
-    noSpeechTitle: 'Naanị mkpọtụ ka a nụrụ',
+    noSpeechTitle: 'Anyị anụghị olu gị nke ọma',
     noSpeechMessage:
-      'Anyị anụghị olu gị nke ọma. Kwuo okwu nso n’ekwentị gị ma ọ bụ pịa ajụjụ gị n’okpuru.',
+      'Kwuo okwu nso n’ekwentị gị ma ọ bụ pịa ajụjụ gị n’okpuru.',
     networkTitle: 'Achọrọ ịntanetị',
     networkMessage:
       'Ịtụgharị olu chọrọ ịntanetị. Biko lelee data gị ma ọ bụ pịa ajụjụ gị n’okpuru.'
@@ -249,38 +264,120 @@ function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null 
 }
 
 const NOISE_FILLER_RE =
-  /^(?:uh+|um+|hmm+|hm+|ah+|eh+|oh+|shh+|mm+|a|an|the|he|it)$/i;
+  /^(?:uh+|um+|hmm+|hm+|ah+|eh+|oh+|shh+|mm+|cough|sigh)$/i;
 
+/**
+ * Core Nigerian market & retail vocabulary used to score acoustic alternatives
+ * when `maxAlternatives` returns multiple candidate phrases.
+ */
 const TRADER_KEYWORDS = [
   'sold',
   'sell',
   'sale',
+  'sales',
   'record',
+  'add',
+  'bought',
+  'buy',
   'bag',
   'bags',
   'carton',
   'cartons',
+  'paint',
+  'derica',
+  'mudu',
+  'crate',
+  'crates',
+  'pack',
+  'packs',
+  'sachet',
+  'roll',
+  'rolls',
+  'dozen',
+  'pieces',
+  'bottle',
+  'bottles',
+  'gallon',
+  'litre',
+  'litres',
   'rice',
   'garri',
   'beans',
   'indomie',
+  'spaghetti',
+  'macaroni',
+  'semovita',
+  'semo',
+  'wheat',
   'yam',
   'oil',
+  'palm',
+  'groundnut',
   'sugar',
   'flour',
   'cement',
+  'milk',
+  'milo',
+  'peak',
+  'dano',
+  'dangote',
+  'bread',
+  'egg',
+  'eggs',
+  'fish',
+  'chicken',
+  'turkey',
+  'meat',
+  'onion',
+  'pepper',
+  'tomato',
+  'soap',
+  'detergent',
+  'drink',
+  'drinks',
+  'water',
+  'coke',
+  'malt',
   'cash',
   'transfer',
   'pos',
   'credit',
+  'opay',
+  'palmpay',
+  'moniepoint',
+  'kuda',
   'expense',
+  'expenses',
   'spent',
+  'pay',
+  'paid',
   'fuel',
+  'diesel',
+  'petrol',
+  'generator',
+  'nepa',
   'transport',
+  'waybill',
+  'keke',
+  'okada',
+  'delivery',
+  'rent',
+  'shop',
+  'levy',
+  'ticket',
+  'nylon',
+  'packaging',
   'debt',
+  'debts',
   'owe',
   'owes',
+  'owing',
   'customer',
+  'supplier',
+  'mama',
+  'alhaji',
+  'madam',
+  'oga',
   'profit',
   'stock',
   'inventory',
@@ -288,14 +385,19 @@ const TRADER_KEYWORDS = [
   'week',
   'month',
   'naira',
-  'thousand'
+  'thousand',
+  'hundred'
 ];
 
 const WORD_NUMBERS: Record<string, number> = {
   one: 1,
+  won: 1,
   two: 2,
+  to: 2,
+  too: 2,
   three: 3,
   four: 4,
+  for: 4,
   five: 5,
   six: 6,
   seven: 7,
@@ -304,7 +406,13 @@ const WORD_NUMBERS: Record<string, number> = {
   ten: 10,
   eleven: 11,
   twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
   fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
   twenty: 20,
   thirty: 30,
   forty: 40,
@@ -324,19 +432,47 @@ export function sharpenTraderTranscript(raw: string): string {
   let text = raw.trim().replace(/\s+/g, ' ');
   if (!text) return '';
 
-  // Fix common speech-engine homophones for Nigerian market items
+  // 1. Fix common Web Speech API phonetic miscorrelations for Nigerian market items & terms
   text = text
-    .replace(/\b(?:in\s*domi|indo\s*me|in\s*do\s*me|indomy)\b/gi, 'Indomie')
-    .replace(/\b(?:gary|gari|gerri|carry)\b(?=\s+(?:for|at|\d))/gi, 'garri')
+    .replace(
+      /\b(?:in\s*domi|indo\s*me|in\s*do\s*me|in\s*dummy|indomy|indomi)\b/gi,
+      'Indomie'
+    )
+    .replace(
+      /\b(?:gary|gari|gerri|garry|carry)\b(?=\s+(?:for|at|₦|\d|cash|transfer|pos|credit)|$)/gi,
+      'garri'
+    )
+    .replace(/\b(?:semo\s*vita|semo\s*victor|semovita)\b/gi, 'Semovita')
+    .replace(/\b(?:dan\s*gote|dangote)\b/gi, 'Dangote')
+    .replace(/\b(?:golden\s*penny|gold\s*in\s*penny)\b/gi, 'Golden Penny')
+    .replace(/\b(?:mama\s*gold)\b/gi, 'Mama Gold')
+    .replace(/\b(?:power\s*oil)\b/gi, 'Power Oil')
+    .replace(/\b(?:granat\s*oil|ground\s*nut\s*oil)\b/gi, 'groundnut oil')
+    .replace(/\b(?:pam\s*oil)\b/gi, 'palm oil')
+    .replace(/\b(?:pick\s*milk|peak\s*milk)\b/gi, 'Peak milk')
+    .replace(/\b(?:dan\s*o\s*milk|dano\s*milk)\b/gi, 'Dano milk')
+    .replace(/\b(?:sea\s*ment|sement)\b/gi, 'cement')
+    .replace(/\b(?:de\s*rica|derika)\b/gi, 'derica')
+    .replace(/\b(?:moodu|mu\s*du)\b/gi, 'mudu')
+    .replace(/\b(?:sasha|satchet)\b/gi, 'sachet')
     .replace(/\b(?:back|backs|bark|barks)\s+of\s+/gi, 'bags of ')
     .replace(/\b(?:caton|catons|cartoon|cartoons)\s+of\s+/gi, 'cartons of ')
+    .replace(/\b(?:ke\s*ke(?:\s*napep)?|keke\s*napep)\b/gi, 'keke')
+    .replace(/\b(?:way\s*bill|weigh\s*bill)\b/gi, 'waybill')
     .replace(/\bp\s*\.?\s*o\s*\.?\s*s\b/gi, 'POS')
-    .replace(/\bo\s*pay\b/gi, 'OPay')
-    .replace(/\bmoni\s*point\b/gi, 'Moniepoint');
+    .replace(/\b(?:o\s*pay|oh\s*pay)\b/gi, 'OPay')
+    .replace(/\b(?:palm\s*pay|pam\s*pay)\b/gi, 'PalmPay')
+    .replace(/\b(?:moni\s*point|money\s*point|monie\s*point)\b/gi, 'Moniepoint')
+    .replace(/\b(?:n\s*e\s*p\s*a)\b/gi, 'NEPA')
+    .replace(/\b(?:mama\s+tee)\b/gi, 'Mama T')
+    .replace(
+      /(\d+|thousand|hundred)\s+(?:naire|nara|narrow|niara)\b/gi,
+      '$1 naira'
+    );
 
-  // Convert "forty five thousand" / "15 thousand" -> "45000" / "15000"
+  // 2. Convert compound spoken thousands: e.g. "forty five thousand" -> "45000"
   text = text.replace(
-    /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\s+(one|two|three|four|five|six|seven|eight|nine)\s+thousand\b/gi,
+    /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[\s-]+(one|two|three|four|five|six|seven|eight|nine)\s+thousand(?:\s+naira)?\b/gi,
     (_, tens: string, ones: string) => {
       const val =
         (WORD_NUMBERS[tens.toLowerCase()] || 0) +
@@ -345,40 +481,76 @@ export function sharpenTraderTranscript(raw: string): string {
     }
   );
 
+  // 3. Convert "one hundred and fifty thousand" / "two hundred thousand" -> "150000" / "200000"
   text = text.replace(
-    /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|\d+)\s+thousand(?:\s+naira)?\b/gi,
-    (_, numWord: string) => {
+    /\b(one|two|three|four|five|six|seven|eight|nine)\s+hundred(?:\s+and\s+(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety))?\s+thousand(?:\s+naira)?\b/gi,
+    (_, hundreds: string, tens?: string) => {
+      const h = (WORD_NUMBERS[hundreds.toLowerCase()] || 1) * 100;
+      const t = tens ? WORD_NUMBERS[tens.toLowerCase()] || 0 : 0;
+      return String((h + t) * 1000);
+    }
+  );
+
+  // 4. Convert single spoken thousands: e.g. "fifteen thousand" / "45 thousand" -> "15000" / "45000"
+  text = text.replace(
+    /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|\d+)\s+thousand(?:\s+naira)?\b/gi,
+    (fullMatch, numWord: string) => {
       const n =
-        WORD_NUMBERS[numWord.toLowerCase()] ?? Number(numWord.replace(/,/g, ''));
+        WORD_NUMBERS[numWord.toLowerCase()] ??
+        Number(numWord.replace(/,/g, ''));
       if (Number.isFinite(n) && n > 0) {
         return String(n * 1000);
       }
-      return _;
+      return fullMatch;
     }
   );
 
-  // Convert standalone quantity words before items ("sold three bags" -> "sold 3 bags")
+  // 5. Convert spoken hundreds: e.g. "five hundred naira" -> "500"
   text = text.replace(
-    /\b(sold|sell|sale|record|add|bought|buy)\s+(one|two|three|four|five|six|seven|eight|nine|ten|twelve|fifteen|twenty)\b/gi,
-    (_, verb: string, qtyWord: string) => {
-      const qty = WORD_NUMBERS[qtyWord.toLowerCase()];
-      return qty ? `${verb} ${qty}` : _;
+    /\b(one|two|three|four|five|six|seven|eight|nine|\d+)\s+hundred(?:\s+naira)?\b/gi,
+    (fullMatch, numWord: string) => {
+      const n =
+        WORD_NUMBERS[numWord.toLowerCase()] ??
+        Number(numWord.replace(/,/g, ''));
+      if (Number.isFinite(n) && n > 0) {
+        return String(n * 100);
+      }
+      return fullMatch;
     }
   );
 
-  // Strip trailing "naira" after numbers so voice action parser matches cleanly
+  // 6. Convert standalone quantity words after action verbs ("sold three bags" -> "sold 3 bags")
+  text = text.replace(
+    /\b(sold|sell|sale|record|add|bought|buy)\s+(one|won|two|to|too|three|four|five|six|seven|eight|nine|ten|twelve|fifteen|twenty)\b/gi,
+    (fullMatch, verb: string, qtyWord: string) => {
+      const qty = WORD_NUMBERS[qtyWord.toLowerCase()];
+      return qty ? `${verb} ${qty}` : fullMatch;
+    }
+  );
+
+  // 7. Convert leading quantity words before units ("three bags of rice" -> "3 bags of rice")
+  text = text.replace(
+    /^(one|two|three|four|five|six|seven|eight|nine|ten|twelve|fifteen|twenty)\s+(bags?|cartons?|paints?|dericas?|mudus?|crates?|packs?|rolls?|dozens?|pieces?|bottles?|gallons?|litres?)\b/i,
+    (fullMatch, qtyWord: string, unit: string) => {
+      const qty = WORD_NUMBERS[qtyWord.toLowerCase()];
+      return qty ? `${qty} ${unit}` : fullMatch;
+    }
+  );
+
+  // 8. Strip trailing "naira" immediately after digits so numeric parsers match cleanly
   text = text.replace(/(\d)\s+naira\b/gi, '$1');
 
   return text.trim();
 }
 
 /**
- * Picks the best alternative from SpeechRecognitionResult by scoring confidence
- * plus Nigerian trader keyword & numeric matches.
+ * Picks the best alternative from SpeechRecognitionResult by scoring acoustic
+ * confidence plus Nigerian trader keyword & numeric matches.
  */
-function pickBestAlternative(
-  result: SpeechRecognitionResultLike
-): { transcript: string; confidence: number } {
+function pickBestAlternative(result: SpeechRecognitionResultLike): {
+  transcript: string;
+  confidence: number;
+} {
   let bestTranscript = result?.[0]?.transcript || '';
   let bestConfidence =
     typeof result?.[0]?.confidence === 'number' ? result[0].confidence : 0.85;
@@ -388,14 +560,18 @@ function pickBestAlternative(
     const alt = result[i];
     if (!alt?.transcript) continue;
     const text = alt.transcript.trim();
-    const conf = typeof alt.confidence === 'number' && alt.confidence > 0 ? alt.confidence : 0.8;
-    const lower = text.toLowerCase();
+    const conf =
+      typeof alt.confidence === 'number' && alt.confidence > 0
+        ? alt.confidence
+        : 0.8;
+    const sharpened = sharpenTraderTranscript(text);
+    const lower = sharpened.toLowerCase();
 
     let bonus = 0;
     for (const kw of TRADER_KEYWORDS) {
-      if (lower.includes(kw)) bonus += 0.08;
+      if (lower.includes(kw)) bonus += 0.09;
     }
-    if (/\d/.test(text)) bonus += 0.1;
+    if (/\d/.test(sharpened)) bonus += 0.12;
 
     const score = conf + bonus;
     if (score > bestScore) {
@@ -406,6 +582,36 @@ function pickBestAlternative(
   }
 
   return { transcript: bestTranscript, confidence: bestConfidence };
+}
+
+/**
+ * Deduplicates cumulative transcripts emitted by mobile Android Chrome
+ * when `continuous = true` or across rapid result segments.
+ */
+function mergeCumulativeSegments(segments: string[]): string {
+  const cleaned: string[] = [];
+  for (const rawSeg of segments) {
+    const seg = rawSeg.trim();
+    if (!seg) continue;
+    if (cleaned.length === 0) {
+      cleaned.push(seg);
+      continue;
+    }
+    const prev = cleaned[cleaned.length - 1];
+    const prevLower = prev.toLowerCase();
+    const segLower = seg.toLowerCase();
+
+    // If Android Chrome emits a cumulative superset of the previous final segment, replace it
+    if (segLower.startsWith(prevLower)) {
+      cleaned[cleaned.length - 1] = seg;
+    } else if (prevLower.startsWith(segLower)) {
+      // Ignore redundant subset
+      continue;
+    } else {
+      cleaned.push(seg);
+    }
+  }
+  return cleaned.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 function playAudioCue(type: 'start' | 'stop' | 'error'): void {
@@ -466,19 +672,6 @@ function playAudioCue(type: 'start' | 'stop' | 'error'): void {
   }
 }
 
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const res = String(reader.result || '');
-      const base64 = res.includes(',') ? res.split(',')[1] : res;
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
 export function useSpeechToText({
   language,
   onTranscriptChange,
@@ -492,6 +685,9 @@ export function useSpeechToText({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [voiceLevel, setVoiceLevel] = useState(0);
   const [interimTranscript, setInterimTranscript] = useState('');
+  const [activeLocale, setActiveLocale] = useState<string>(
+    SPEECH_LANG_MAP[language] || 'en-NG'
+  );
   const [toast, setToast] = useState<SpeechToast | null>(null);
   const [isStandalonePwa, setIsStandalonePwa] = useState<boolean>(() =>
     isStandalonePwaEnvironment()
@@ -500,19 +696,11 @@ export function useSpeechToText({
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const userStoppedRef = useRef<boolean>(false);
   const baseTextRef = useRef<string>('');
-  const committedSessionTextRef = useRef<string>('');
+  const priorEpochsTextRef = useRef<string>('');
+  const currentEpochTextRef = useRef<string>('');
   const fallbackAttemptedRef = useRef<boolean>(false);
-
-  // Noise-suppression Web Audio DSP & VAD state
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
-  const noiseFloorRef = useRef<number>(0.012);
-  const recentSpeechEnergyRef = useRef<number>(0);
-  const hadClearVoiceRef = useRef<boolean>(false);
   const silenceTimerRef = useRef<number | null>(null);
+  const levelDecayTimerRef = useRef<number | null>(null);
 
   const onTranscriptChangeRef = useRef(onTranscriptChange);
   const onSpeechEndRef = useRef(onSpeechEnd);
@@ -525,12 +713,11 @@ export function useSpeechToText({
     onSpeechEndRef.current = onSpeechEnd;
   }, [onSpeechEnd]);
 
-  const isSupported = Boolean(
-    getSpeechRecognitionConstructor() ||
-      (typeof navigator !== 'undefined' &&
-        navigator.mediaDevices &&
-        typeof navigator.mediaDevices.getUserMedia === 'function')
-  );
+  useEffect(() => {
+    setActiveLocale(SPEECH_LANG_MAP[language] || 'en-NG');
+  }, [language]);
+
+  const isSupported = Boolean(getSpeechRecognitionConstructor());
   const speechLang = SPEECH_LANG_MAP[language] || 'en-NG';
   const speechLangLabel = SPEECH_LANG_LABELS[language] || SPEECH_LANG_LABELS.en;
   const copy = SPEECH_COPY[language] || SPEECH_COPY.en;
@@ -552,40 +739,14 @@ export function useSpeechToText({
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  const cleanupAudioPipeline = useCallback(() => {
+  const clearTimers = useCallback(() => {
     if (silenceTimerRef.current) {
       window.clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-    if (rafRef.current) {
-      window.cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== 'inactive'
-    ) {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {
-        // ignore
-      }
-    }
-    mediaRecorderRef.current = null;
-
-    if (mediaStreamRef.current) {
-      for (const track of mediaStreamRef.current.getTracks()) {
-        try {
-          track.stop();
-        } catch {
-          // ignore
-        }
-      }
-      mediaStreamRef.current = null;
-    }
-    if (audioContextRef.current) {
-      void audioContextRef.current.close().catch(() => undefined);
-      audioContextRef.current = null;
+    if (levelDecayTimerRef.current) {
+      window.clearInterval(levelDecayTimerRef.current);
+      levelDecayTimerRef.current = null;
     }
     setVoiceLevel(0);
   }, []);
@@ -605,156 +766,19 @@ export function useSpeechToText({
         }
         recognitionRef.current = null;
       }
-      cleanupAudioPipeline();
+      clearTimers();
     };
-  }, [cleanupAudioPipeline]);
+  }, [clearTimers]);
 
-  /**
-   * Starts hardware noise-suppressed microphone + Web Audio bandpass voice filter
-   * (120 Hz High-Pass -> 3800 Hz Low-Pass -> 2400 Hz Vocal Presence Boost -> Compressor)
-   * to isolate foreground human voice and ignore background market noise.
-   */
-  const startNoiseFilteredAudioMonitor = useCallback(async () => {
-    if (!navigator.mediaDevices?.getUserMedia) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: { ideal: true },
-          noiseSuppression: { ideal: true },
-          autoGainControl: { ideal: true },
-          channelCount: { ideal: 1 }
-        }
-      });
-
-      if (userStoppedRef.current) {
-        for (const t of stream.getTracks()) t.stop();
-        return;
-      }
-
-      mediaStreamRef.current = stream;
-
-      const AudioCtx =
-        window.AudioContext ||
-        (window as Window & { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext;
-      if (!AudioCtx) return;
-
-      const ctx = new AudioCtx();
-      audioContextRef.current = ctx;
-
-      const source = ctx.createMediaStreamSource(stream);
-
-      // 1. High-pass filter at 120 Hz: removes low-frequency generator, fan, wind, & traffic rumble
-      const highPass = ctx.createBiquadFilter();
-      highPass.type = 'highpass';
-      highPass.frequency.value = 120;
-      highPass.Q.value = 0.75;
-
-      // 2. Low-pass filter at 3800 Hz: removes high-frequency hiss & clatter outside human voice band
-      const lowPass = ctx.createBiquadFilter();
-      lowPass.type = 'lowpass';
-      lowPass.frequency.value = 3800;
-      lowPass.Q.value = 0.75;
-
-      // 3. Vocal presence boost at 2400 Hz (+4.5 dB): sharpens consonant intelligibility
-      const vocalBoost = ctx.createBiquadFilter();
-      vocalBoost.type = 'peaking';
-      vocalBoost.frequency.value = 2400;
-      vocalBoost.Q.value = 1.1;
-      vocalBoost.gain.value = 4.5;
-
-      // 4. Dynamics compressor: stabilizes foreground voice volume
-      const compressor = ctx.createDynamicsCompressor();
-      compressor.threshold.value = -26;
-      compressor.knee.value = 18;
-      compressor.ratio.value = 4;
-      compressor.attack.value = 0.005;
-      compressor.release.value = 0.15;
-
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.65;
-
-      source.connect(highPass);
-      highPass.connect(lowPass);
-      lowPass.connect(vocalBoost);
-      vocalBoost.connect(compressor);
-      compressor.connect(analyser);
-
-      // Also feed the bandpass-filtered stream into MediaRecorder for AI fallback if needed
-      if (typeof MediaRecorder !== 'undefined' && ctx.createMediaStreamDestination) {
-        try {
-          const dest = ctx.createMediaStreamDestination();
-          compressor.connect(dest);
-          recordedChunksRef.current = [];
-          const recorder = new MediaRecorder(dest.stream);
-          recorder.ondataavailable = ev => {
-            if (ev.data && ev.data.size > 0) {
-              recordedChunksRef.current.push(ev.data);
-            }
-          };
-          recorder.start(250);
-          mediaRecorderRef.current = recorder;
-        } catch {
-          // ignore MediaRecorder errors on older browsers
-        }
-      }
-
-      const timeData = new Float32Array(analyser.fftSize);
-      noiseFloorRef.current = 0.012;
-      recentSpeechEnergyRef.current = 0;
-      hadClearVoiceRef.current = false;
-
-      const tick = () => {
-        if (userStoppedRef.current || !audioContextRef.current) return;
-        analyser.getFloatTimeDomainData(timeData);
-
-        let sumSquares = 0;
-        for (let i = 0; i < timeData.length; i += 1) {
-          const sample = timeData[i];
-          sumSquares += sample * sample;
-        }
-        const rms = Math.sqrt(sumSquares / timeData.length);
-
-        // Adaptive noise floor: slowly adapts to steady background hum without adapting to speech
-        if (rms < noiseFloorRef.current * 1.45) {
-          noiseFloorRef.current = noiseFloorRef.current * 0.94 + rms * 0.06;
-        } else {
-          noiseFloorRef.current = noiseFloorRef.current * 0.995 + rms * 0.005;
-        }
-
-        const voiceGateThreshold = Math.max(0.017, noiseFloorRef.current * 1.75);
-        const isForegroundVoice = rms > voiceGateThreshold;
-
-        if (isForegroundVoice) {
-          recentSpeechEnergyRef.current = Math.max(
-            rms,
-            recentSpeechEnergyRef.current * 0.85
-          );
-          hadClearVoiceRef.current = true;
-        } else {
-          recentSpeechEnergyRef.current *= 0.9;
-        }
-
-        // Convert foreground voice energy above noise floor into 0-100 visual meter
-        const netEnergy = Math.max(0, rms - noiseFloorRef.current);
-        const normalizedLevel = Math.min(100, Math.round(netEnergy * 420));
-        setVoiceLevel(normalizedLevel);
-
-        rafRef.current = window.requestAnimationFrame(tick);
-      };
-
-      rafRef.current = window.requestAnimationFrame(tick);
-    } catch {
-      // Browser SpeechRecognition can still operate even if getUserMedia stream isn't opened separately
-    }
+  const pulseVoiceActivity = useCallback((intensity = 68) => {
+    setVoiceLevel(Math.min(100, Math.max(22, intensity)));
   }, []);
 
   const clearToast = useCallback(() => {
     setToast(null);
   }, []);
 
-  const finalizeAndStop = useCallback(async () => {
+  const finalizeAndStop = useCallback(() => {
     userStoppedRef.current = true;
     const instance = recognitionRef.current;
     if (instance) {
@@ -771,68 +795,28 @@ export function useSpeechToText({
       }
     }
 
-    // Grab recorded noise-filtered audio chunks before closing pipeline
-    const recorder = mediaRecorderRef.current;
-    const chunks = [...recordedChunksRef.current];
-    const mimeType = recorder?.mimeType || 'audio/webm';
-    const hadVoice = hadClearVoiceRef.current;
-
-    cleanupAudioPipeline();
+    clearTimers();
     setIsListening(false);
+    setIsTranscribing(false);
     setInterimTranscript('');
-
-    // If browser SpeechRecognition missed the utterance despite foreground voice,
-    // use the AI noise-filtered audio transcription endpoint if online
-    if (
-      !committedSessionTextRef.current.trim() &&
-      hadVoice &&
-      chunks.length > 0 &&
-      navigator.onLine
-    ) {
-      try {
-        setIsTranscribing(true);
-        const blob = new Blob(chunks, { type: mimeType });
-        if (blob.size > 800) {
-          const b64 = await blobToBase64(blob);
-          const res = await api.transcribeAudio(b64, mimeType, language);
-          const sharpened = sharpenTraderTranscript(res.transcript || '');
-          if (sharpened) {
-            committedSessionTextRef.current = sharpened;
-            const combined = [baseTextRef.current, sharpened]
-              .filter(Boolean)
-              .join(' ')
-              .replace(/\s+/g, ' ')
-              .trim();
-            onTranscriptChangeRef.current(combined);
-          }
-        }
-      } catch {
-        // ignore fallback errors
-      } finally {
-        setIsTranscribing(false);
-      }
-    }
-
     onSpeechEndRef.current?.();
-  }, [cleanupAudioPipeline, language]);
+  }, [clearTimers]);
 
   const stopListening = useCallback(() => {
-    void finalizeAndStop();
+    finalizeAndStop();
   }, [finalizeAndStop]);
 
   const launchRecognizer = useCallback(
     (langCode: string, currentInputText: string, isAutoRestart = false) => {
       const Ctor = getSpeechRecognitionConstructor();
       if (!Ctor) {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          playAudioCue('error');
-          setToast({
-            kind: 'unsupported',
-            title: copy.unsupportedTitle,
-            message: copy.unsupportedMessage
-          });
-          onSpeechEndRef.current?.();
-        }
+        playAudioCue('error');
+        setToast({
+          kind: 'unsupported',
+          title: copy.unsupportedTitle,
+          message: copy.unsupportedMessage
+        });
+        onSpeechEndRef.current?.();
         return;
       }
 
@@ -850,16 +834,27 @@ export function useSpeechToText({
       recognitionRef.current = recognition;
 
       recognition.lang = langCode;
-      // Request 5 alternatives so we can score and pick the sharpest trader phrase
+      setActiveLocale(langCode);
+
+      // Request up to 5 acoustic alternatives so `pickBestAlternative` can score
+      // Nigerian market vocabulary, products, and numbers accurately.
       recognition.maxAlternatives = 5;
       recognition.interimResults = true;
-      // Use continuous=false with seamless auto-restart so background noise pauses
-      // never cut off the trader mid-sentence AND Android Chrome never echoes duplicates.
-      recognition.continuous = false;
+
+      // Enable continuous mode so there is zero restart gap mid-sentence.
+      // (We use `mergeCumulativeSegments` below so mobile Android Chrome never duplicates text.)
+      recognition.continuous = true;
 
       if (!isAutoRestart) {
         baseTextRef.current = currentInputText.trim();
-        committedSessionTextRef.current = '';
+        priorEpochsTextRef.current = '';
+        currentEpochTextRef.current = '';
+      } else if (currentEpochTextRef.current) {
+        priorEpochsTextRef.current = mergeCumulativeSegments([
+          priorEpochsTextRef.current,
+          currentEpochTextRef.current
+        ]);
+        currentEpochTextRef.current = '';
       }
 
       recognition.onstart = () => {
@@ -868,55 +863,70 @@ export function useSpeechToText({
           setInterimTranscript('');
           setToast(null);
           playAudioCue('start');
+          pulseVoiceActivity(30);
+
+          if (levelDecayTimerRef.current) {
+            window.clearInterval(levelDecayTimerRef.current);
+          }
+          levelDecayTimerRef.current = window.setInterval(() => {
+            setVoiceLevel(prev => (prev > 14 ? Math.round(prev * 0.82) : 12));
+          }, 140);
         }
       };
 
-      recognition.onresult = (event: SpeechRecognitionEventLike) => {
-        let finalChunk = '';
-        let interimChunk = '';
+      recognition.onspeechstart = () => {
+        pulseVoiceActivity(72);
+      };
 
-        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      recognition.onresult = (event: SpeechRecognitionEventLike) => {
+        const finalSegments: string[] = [];
+        const interimSegments: string[] = [];
+
+        // Traverse all results in the current recognition epoch and deduplicate
+        // cumulative Android Chrome segments while rejecting background noise fillers.
+        for (let i = 0; i < event.results.length; i += 1) {
           const result = event.results[i];
           const { transcript, confidence } = pickBestAlternative(result);
           const trimmed = transcript.trim();
           if (!trimmed) continue;
 
-          // Background Noise Gate:
-          // Ignore low-confidence or 1-word filler hallucinations caused by background sound
           const isNoiseFiller = NOISE_FILLER_RE.test(trimmed);
-          const lowVoiceEnergy =
-            recentSpeechEnergyRef.current > 0 &&
-            recentSpeechEnergyRef.current < noiseFloorRef.current * 1.25;
 
           if (result.isFinal) {
-            if (isNoiseFiller && trimmed.length <= 3) {
+            // Reject single-syllable background noise hallucinations
+            if (isNoiseFiller && trimmed.length <= 4) {
               continue;
             }
-            if (confidence > 0 && confidence < 0.35 && lowVoiceEnergy) {
+            if (confidence > 0 && confidence < 0.22 && trimmed.length <= 3) {
               continue;
             }
-            finalChunk += ` ${sharpenTraderTranscript(trimmed)}`;
+            finalSegments.push(sharpenTraderTranscript(trimmed));
           } else if (!isNoiseFiller) {
-            interimChunk += ` ${trimmed}`;
+            interimSegments.push(trimmed);
           }
         }
 
-        if (finalChunk.trim()) {
-          committedSessionTextRef.current = sharpenTraderTranscript(
-            [committedSessionTextRef.current, finalChunk.trim()]
-              .filter(Boolean)
-              .join(' ')
-          );
-        }
+        const epochFinal = sharpenTraderTranscript(
+          mergeCumulativeSegments(finalSegments)
+        );
+        const cleanInterim = sharpenTraderTranscript(
+          mergeCumulativeSegments(interimSegments)
+        );
 
-        const cleanInterim = sharpenTraderTranscript(interimChunk.trim());
+        currentEpochTextRef.current = epochFinal;
         setInterimTranscript(cleanInterim);
 
-        const combined = [
-          baseTextRef.current,
-          committedSessionTextRef.current,
-          cleanInterim
-        ]
+        // Pulse the visual voice meter proportional to active speech
+        pulseVoiceActivity(cleanInterim ? 88 : epochFinal ? 65 : 32);
+
+        const fullSessionText = sharpenTraderTranscript(
+          mergeCumulativeSegments([
+            priorEpochsTextRef.current,
+            currentEpochTextRef.current
+          ])
+        );
+
+        const combined = [baseTextRef.current, fullSessionText, cleanInterim]
           .filter(Boolean)
           .join(' ')
           .replace(/\s+/g, ' ')
@@ -924,24 +934,28 @@ export function useSpeechToText({
 
         onTranscriptChangeRef.current(combined);
 
-        // Reset auto-stop silence timer: once real words have been spoken,
-        // wait 3.8 seconds of silence before auto-completing
-        if (committedSessionTextRef.current || cleanInterim) {
+        // Once speech has been captured, auto-complete after 4.0 seconds of silence
+        if (fullSessionText || cleanInterim) {
           if (silenceTimerRef.current) {
             window.clearTimeout(silenceTimerRef.current);
           }
           silenceTimerRef.current = window.setTimeout(() => {
-            if (!userStoppedRef.current && committedSessionTextRef.current) {
+            if (
+              !userStoppedRef.current &&
+              (priorEpochsTextRef.current || currentEpochTextRef.current)
+            ) {
               playAudioCue('stop');
-              void finalizeAndStop();
+              finalizeAndStop();
             }
-          }, 3800);
+          }, 4000);
         }
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
         const errorCode = (event.error || '').toLowerCase();
 
+        // Seamless fallback to Nigerian English ('en-NG') if the device OS
+        // does not have an offline/online pack for pcm-NG, yo-NG, ha-NG, or ig-NG
         if (
           (errorCode === 'language-not-supported' ||
             errorCode === 'bad-grammar') &&
@@ -959,8 +973,7 @@ export function useSpeechToText({
           return;
         }
 
-        // In noisy environments, 'no-speech' fires if the user pauses briefly;
-        // keep listening seamlessly unless the user clicked Done!
+        // Ignore transient 'no-speech' events while the trader is still holding the session open
         if (errorCode === 'no-speech' && !userStoppedRef.current) {
           return;
         }
@@ -970,7 +983,7 @@ export function useSpeechToText({
         }
 
         userStoppedRef.current = true;
-        cleanupAudioPipeline();
+        clearTimers();
         setIsListening(false);
         setInterimTranscript('');
         playAudioCue('error');
@@ -1010,8 +1023,8 @@ export function useSpeechToText({
       };
 
       recognition.onend = () => {
-        // If the user has NOT tapped Done yet, automatically sustain listening
-        // so background noise spikes never cut off their sentence prematurely!
+        // If the browser/mobile OS closed the recognition epoch due to a brief pause
+        // and the trader hasn't tapped Done yet, seamlessly continue listening
         if (!userStoppedRef.current) {
           try {
             launchRecognizer(langCode, baseTextRef.current, true);
@@ -1020,14 +1033,14 @@ export function useSpeechToText({
             // fall through to finalize
           }
         }
-        void finalizeAndStop();
+        finalizeAndStop();
       };
 
       try {
         recognition.start();
       } catch {
         userStoppedRef.current = true;
-        cleanupAudioPipeline();
+        clearTimers();
         setIsListening(false);
         setInterimTranscript('');
         playAudioCue('error');
@@ -1041,7 +1054,13 @@ export function useSpeechToText({
         onSpeechEndRef.current?.();
       }
     },
-    [cleanupAudioPipeline, copy, finalizeAndStop, isStandalonePwa]
+    [
+      clearTimers,
+      copy,
+      finalizeAndStop,
+      isStandalonePwa,
+      pulseVoiceActivity
+    ]
   );
 
   const startListening = useCallback(
@@ -1079,13 +1098,11 @@ export function useSpeechToText({
       userStoppedRef.current = false;
       fallbackAttemptedRef.current = false;
 
-      // Start the hardware noise-suppressed + bandpass-filtered audio monitor in parallel
-      void startNoiseFilteredAudioMonitor();
-
-      // Synchronously launch the recognizer inside the user gesture
+      // Launch SpeechRecognition synchronously inside the user gesture with exclusive
+      // hardware microphone access (no competing getUserMedia stream) for maximum mobile PWA clarity.
       launchRecognizer(speechLang, currentInputText, false);
     },
-    [copy, launchRecognizer, speechLang, startNoiseFilteredAudioMonitor]
+    [copy, launchRecognizer, speechLang]
   );
 
   const toggleListening = useCallback(
@@ -1107,7 +1124,7 @@ export function useSpeechToText({
     isTranscribing,
     voiceLevel,
     interimTranscript,
-    speechLang,
+    speechLang: activeLocale,
     speechLangLabel,
     listeningTitle: isTranscribing
       ? copy.transcribingTitle

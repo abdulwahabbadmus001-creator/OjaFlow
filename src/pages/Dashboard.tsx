@@ -1,12 +1,17 @@
+import { useState } from 'react';
 import {
   ArrowRight,
   BellRing,
+  CheckCircle2,
+  Circle,
   CircleAlert,
   HandCoins,
   Package,
   ReceiptText,
+  Sparkles,
   TrendingDown,
-  TrendingUp
+  TrendingUp,
+  UserPlus
 } from 'lucide-react';
 import type { BusinessProfile, StoreData, UserProfile } from '../types';
 import { money } from '../lib/format';
@@ -20,7 +25,8 @@ export default function Dashboard({
   data,
   onOpenSales,
   onOpenInventory,
-  onOpenDebts
+  onOpenDebts,
+  onOpenCustomers
 }: {
   profile: UserProfile;
   business: BusinessProfile;
@@ -28,7 +34,65 @@ export default function Dashboard({
   onOpenSales?: () => void;
   onOpenInventory?: () => void;
   onOpenDebts?: () => void;
+  onOpenCustomers?: () => void;
 }) {
+  const checklistStorageKey = `ojaflow:${profile.uid}:onboarding-checklist-dismissed`;
+  const [checklistDismissed, setChecklistDismissed] = useState<boolean>(
+    () => localStorage.getItem(checklistStorageKey) === 'true'
+  );
+
+  const hasFirstProduct = data.products.length > 0;
+  const hasFirstSale = data.sales.length > 0;
+  const hasFirstCustomer =
+    data.customers.length > 0 ||
+    data.sales.some(
+      s =>
+        Boolean(s.customer?.trim()) &&
+        s.customer!.trim().toLowerCase() !== 'walk-in'
+    ) ||
+    data.debts.some(d => d.type === 'customer');
+
+  const onboardingSteps = [
+    {
+      id: 'product',
+      stepNumber: 1,
+      title: 'Add your first product to inventory',
+      description:
+        'List what you sell with its stock count and selling price so OjaFlow can track your stock automatically.',
+      completed: hasFirstProduct,
+      ctaLabel: hasFirstProduct ? 'Product added' : 'Add first product',
+      icon: Package,
+      onAction: onOpenInventory
+    },
+    {
+      id: 'sale',
+      stepNumber: 2,
+      title: 'Record your first sale',
+      description:
+        'Log a sale in seconds or use OjaChat voice input to generate your first WhatsApp & PNG receipt.',
+      completed: hasFirstSale,
+      ctaLabel: hasFirstSale ? 'Sale recorded' : 'Record first sale',
+      icon: ReceiptText,
+      onAction: onOpenSales
+    },
+    {
+      id: 'customer',
+      stepNumber: 3,
+      title: 'Add your first customer',
+      description:
+        'Save a regular buyer’s name and phone number to send instant WhatsApp receipts and track loyalty.',
+      completed: hasFirstCustomer,
+      ctaLabel: hasFirstCustomer ? 'Customer added' : 'Add first customer',
+      icon: UserPlus,
+      onAction: onOpenCustomers || onOpenSales
+    }
+  ];
+
+  const completedStepsCount = onboardingSteps.filter(s => s.completed).length;
+  const showOnboardingChecklist =
+    !checklistDismissed &&
+    (completedStepsCount < 3 ||
+      (data.products.length <= 2 && data.sales.length <= 2));
   const snap = businessSnapshot(data);
 
   const recent = [...data.sales]
@@ -162,6 +226,217 @@ export default function Dashboard({
           }).format(new Date())}
         </div>
       </header>
+
+      {showOnboardingChecklist && (
+        <section
+          className="panel onboarding-checklist-panel"
+          aria-label="First-time trader setup checklist"
+          style={{
+            marginBottom: '1.35rem',
+            border: '1px solid rgba(11, 107, 69, 0.25)',
+            background:
+              'linear-gradient(145deg, rgba(11, 107, 69, 0.06), rgba(16, 185, 129, 0.02))'
+          }}
+        >
+          <div
+            className="panel-head"
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              gap: '1rem',
+              flexWrap: 'wrap'
+            }}
+          >
+            <div>
+              <span
+                className="eyebrow"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  color: '#0b6b45',
+                  fontWeight: 700
+                }}
+              >
+                <Sparkles size={14} /> GETTING STARTED WITH OJAFLOW (
+                {completedStepsCount}/3 COMPLETED)
+              </span>
+              <h2 style={{ marginTop: '0.25rem' }}>
+                {completedStepsCount === 3
+                  ? `🎉 ${business.businessName} is 100% set up and ready for business!`
+                  : `Welcome to ${business.businessName}! Complete your 3-step shop setup`}
+              </h2>
+              <p>
+                {completedStepsCount === 3
+                  ? 'You have added your first product, recorded your first sale, and added your first customer.'
+                  : 'Complete these 3 quick steps to unlock automated stock tracking, profit insights, and WhatsApp receipts.'}
+              </p>
+            </div>
+
+            {completedStepsCount === 3 && (
+              <button
+                type="button"
+                className="secondary-btn compact"
+                onClick={() => {
+                  localStorage.setItem(checklistStorageKey, 'true');
+                  setChecklistDismissed(true);
+                }}
+              >
+                Dismiss checklist
+              </button>
+            )}
+          </div>
+
+          <div
+            className="onboarding-progress-track"
+            aria-hidden="true"
+            style={{
+              height: '8px',
+              borderRadius: '999px',
+              background: 'rgba(11, 107, 69, 0.12)',
+              overflow: 'hidden',
+              margin: '0.75rem 0 1.15rem'
+            }}
+          >
+            <div
+              style={{
+                width: `${Math.round((completedStepsCount / 3) * 100)}%`,
+                height: '100%',
+                borderRadius: '999px',
+                background: 'linear-gradient(90deg, #0b6b45, #10b981)',
+                transition: 'width 0.35s ease'
+              }}
+            />
+          </div>
+
+          <div
+            className="onboarding-steps-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '0.85rem'
+            }}
+          >
+            {onboardingSteps.map(step => {
+              const StepIcon = step.icon;
+              return (
+                <div
+                  key={step.id}
+                  className={`onboarding-step-card ${
+                    step.completed ? 'completed' : 'pending'
+                  }`}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '0.85rem',
+                    padding: '1rem',
+                    borderRadius: '14px',
+                    border: step.completed
+                      ? '1px solid rgba(16, 185, 129, 0.45)'
+                      : '1px solid rgba(148, 163, 184, 0.25)',
+                    background: step.completed
+                      ? 'rgba(16, 185, 129, 0.08)'
+                      : 'var(--surface, rgba(255, 255, 255, 0.7))'
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '0.55rem'
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          color: step.completed ? '#059669' : '#64748b',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em'
+                        }}
+                      >
+                        {step.completed ? (
+                          <CheckCircle2 size={18} color="#059669" />
+                        ) : (
+                          <Circle size={18} color="#64748b" />
+                        )}
+                        Step {step.stepNumber} •{' '}
+                        {step.completed ? 'Done' : 'Pending'}
+                      </span>
+
+                      <StepIcon
+                        size={18}
+                        style={{
+                          opacity: step.completed ? 0.9 : 0.65,
+                          color: step.completed ? '#059669' : 'inherit'
+                        }}
+                      />
+                    </div>
+
+                    <strong
+                      style={{
+                        display: 'block',
+                        fontSize: '0.98rem',
+                        marginBottom: '0.35rem',
+                        textDecoration: step.completed ? 'line-through' : 'none',
+                        opacity: step.completed ? 0.85 : 1
+                      }}
+                    >
+                      {step.title}
+                    </strong>
+
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: '0.84rem',
+                        lineHeight: 1.45,
+                        opacity: 0.82
+                      }}
+                    >
+                      {step.description}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={
+                      step.completed
+                        ? 'secondary-btn compact'
+                        : 'primary-btn compact'
+                    }
+                    onClick={step.onAction}
+                    style={{
+                      alignSelf: 'flex-start',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    {step.completed ? (
+                      <>
+                        <CheckCircle2 size={15} />
+                        <span>{step.ctaLabel}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{step.ctaLabel}</span>
+                        <ArrowRight size={15} />
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {stockAlerts.length > 0 && (
         <section className="panel attention-panel">

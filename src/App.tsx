@@ -238,8 +238,35 @@ export default function App() {
 
   return (
     <LanguageProvider language={profile.preferredLanguage}>
-      <AppShell section={section} setSection={setSection} profile={profile} business={business} syncStatus={store.syncStatus} onQuick={() => setQuick(true)} onChat={() => setChat(true)}>
-        {section === 'home' && <Dashboard profile={profile} business={business} data={store.data} onOpenSales={() => setSection('sales')} onOpenInventory={() => setSection('inventory')} onOpenDebts={() => setSection('debts')} />}
+      <AppShell
+        section={section}
+        setSection={setSection}
+        profile={profile}
+        business={business}
+        syncStatus={store.syncStatus}
+        pendingOfflineCount={store.pendingOfflineCount}
+        syncToast={store.syncToast}
+        onDismissSyncToast={store.dismissSyncToast}
+        onQuick={() => setQuick(true)}
+        onChat={() => setChat(true)}
+      >
+        {section === 'home' && (
+          <Dashboard
+            profile={profile}
+            business={business}
+            data={store.data}
+            onOpenSales={() => {
+              sessionStorage.setItem('ojaflow:sales-tab', 'sales');
+              setSection('sales');
+            }}
+            onOpenInventory={() => setSection('inventory')}
+            onOpenDebts={() => setSection('debts')}
+            onOpenCustomers={() => {
+              sessionStorage.setItem('ojaflow:sales-tab', 'customers');
+              setSection('sales');
+            }}
+          />
+        )}
         {section === 'sales' && <SalesPage data={store.data} business={business} preferredLanguage={profile.preferredLanguage} addSale={store.actions.addSale} addExpense={store.actions.addExpense} addCustomer={store.actions.addCustomer} updateCustomer={store.actions.updateCustomer} addInvoice={store.actions.addInvoice} updateInvoice={store.actions.updateInvoice} />}
         {section === 'inventory' && <InventoryPage data={store.data} addProduct={store.actions.addProduct} />}
         {section === 'debts' && <DebtsPage data={store.data} business={business} addDebt={store.actions.addDebt} updateDebtPaid={store.actions.updateDebtPaid} />}

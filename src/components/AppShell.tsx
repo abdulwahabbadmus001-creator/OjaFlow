@@ -74,7 +74,10 @@ export default function AppShell({
   children,
   onQuick,
   onChat,
-  syncStatus
+  syncStatus,
+  pendingOfflineCount = 0,
+  syncToast = null,
+  onDismissSyncToast
 }: {
   section: AppSection;
   setSection: (section: AppSection) => void;
@@ -84,6 +87,9 @@ export default function AppShell({
   onQuick: () => void;
   onChat: () => void;
   syncStatus: SyncStatus;
+  pendingOfflineCount?: number;
+  syncToast?: string | null;
+  onDismissSyncToast?: () => void;
 }) {
   const { tr } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -145,13 +151,19 @@ export default function AppShell({
 
   const statusLabel =
     syncStatus === 'syncing'
-      ? tr('Syncing')
+      ? pendingOfflineCount > 0
+        ? `${tr('Syncing')} (${pendingOfflineCount})`
+        : tr('Syncing')
       : syncStatus === 'synced'
         ? tr('Synced')
         : syncStatus === 'offline'
-          ? tr('Offline')
+          ? pendingOfflineCount > 0
+            ? `${tr('Offline')} • ${pendingOfflineCount} ${tr('queued')}`
+            : tr('Offline')
           : syncStatus === 'error'
-            ? tr('Sync issue')
+            ? pendingOfflineCount > 0
+              ? `${tr('Offline queue')} (${pendingOfflineCount})`
+              : tr('Sync issue')
             : tr('Ready');
 
   function navigate(target: AppSection) {
@@ -257,6 +269,51 @@ export default function AppShell({
       )}
 
       <main className="premium-main">
+        {syncToast && (
+          <div
+            className="offline-sync-toast"
+            role="status"
+            aria-live="polite"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              padding: '0.75rem 1rem',
+              marginBottom: '1rem',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #065f46, #047857)',
+              color: '#ffffff',
+              boxShadow: '0 10px 25px rgba(4, 120, 87, 0.24)',
+              fontWeight: 600,
+              fontSize: '0.92rem'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <Check size={18} />
+              <span>{syncToast}</span>
+            </div>
+            {onDismissSyncToast && (
+              <button
+                type="button"
+                onClick={onDismissSyncToast}
+                aria-label={tr('Dismiss')}
+                style={{
+                  background: 'rgba(255,255,255,0.16)',
+                  border: 0,
+                  color: '#ffffff',
+                  borderRadius: '8px',
+                  padding: '0.25rem 0.45rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center'
+                }}
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+        )}
         <PwaInstallBanner />
         <MaintenanceBanner />
 

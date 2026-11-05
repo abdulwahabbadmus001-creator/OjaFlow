@@ -582,6 +582,19 @@ export default function OjaChat({
       [data]
     );
 
+  // Auto-hide the 4 preset suggestion chips immediately when the user starts
+  // typing in the input box, activates voice input, or sends their first message.
+  const hasUserSentMessage = useMemo(
+    () => messages.some(msg => msg.role === 'user'),
+    [messages]
+  );
+
+  const showSuggestionChips =
+    !hasUserSentMessage &&
+    input.trim().length === 0 &&
+    !isListening &&
+    !isTranscribing;
+
   /*
    * If OjaChat is ever reused
    * for another business without
@@ -1713,46 +1726,48 @@ export default function OjaChat({
             )}
           </div>
 
-          <div className="prompt-grid">
-            {promptGroups.map(
-              item => {
-                const Icon =
-                  item.icon;
+          {showSuggestionChips && (
+            <div className="prompt-grid">
+              {promptGroups.map(
+                item => {
+                  const Icon =
+                    item.icon;
 
-                return (
-                  <button
-                    type="button"
+                  return (
+                    <button
+                      type="button"
 
-                    key={
-                      item.text
-                    }
-
-                    onClick={() =>
-                      void ask(
-                        tr(
-                          item.text
-                        )
-                      )
-                    }
-
-                    disabled={
-                      busy
-                    }
-                  >
-                    <Icon
-                      size={16}
-                    />
-
-                    <span>
-                      {tr(
+                      key={
                         item.text
-                      )}
-                    </span>
-                  </button>
-                );
-              }
-            )}
-          </div>
+                      }
+
+                      onClick={() =>
+                        void ask(
+                          tr(
+                            item.text
+                          )
+                        )
+                      }
+
+                      disabled={
+                        busy
+                      }
+                    >
+                      <Icon
+                        size={16}
+                      />
+
+                      <span>
+                        {tr(
+                          item.text
+                        )}
+                      </span>
+                    </button>
+                  );
+                }
+              )}
+            </div>
+          )}
 
           {(isListening || isTranscribing) && (
             <div
@@ -1791,10 +1806,7 @@ export default function OjaChat({
                       : listeningTitle}
                   </strong>
                   <span className="ojachat-stt-lang-badge">
-                    {speechLangLabel} •{' '}
-                    {voiceLevel >= 18
-                      ? tr('Voice locked')
-                      : tr('Noise filter ON')}
+                    {speechLangLabel} • {speechLang}
                     {isStandalonePwa ? ' • PWA' : ''}
                   </span>
                 </div>
@@ -1861,6 +1873,9 @@ export default function OjaChat({
             onSubmit={
               event => {
                 event.preventDefault();
+                if (isListening) {
+                  stopListening();
+                }
 
                 void ask();
               }
@@ -1890,6 +1905,9 @@ export default function OjaChat({
                     !event.shiftKey
                   ) {
                     event.preventDefault();
+                    if (isListening) {
+                      stopListening();
+                    }
 
                     void ask();
                   }
