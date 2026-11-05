@@ -294,3 +294,13 @@ export interface AdminOverviewStats {
   openTickets: number;
   answeredTickets: number;
 }
+
+export interface SystemBroadcastItem {
+  id: string;
+  kind: 'info' | 'update' | 'maintenance';
+  title: string;
+  message: string;
+  isActive: boolean;
+  updatedBy?: string;
+  updatedAt?: string | null;
+}

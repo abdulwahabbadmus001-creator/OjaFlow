@@ -7,6 +7,7 @@ import type {
   LanguagePreference,
   StoreData,
   SupportTicketItem,
+  SystemBroadcastItem,
   UserNotificationItem,
   UserProfile
 } from '../types';
@@ -467,6 +468,24 @@ export const api = {
       true
     ),
 
+  transcribeAudio: (
+    audioBase64: string,
+    mimeType: string,
+    preferredLanguage: LanguagePreference = 'en'
+  ) =>
+    request<{ transcript: string }>(
+      '/chat/transcribe',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          audioBase64,
+          mimeType,
+          preferredLanguage
+        })
+      },
+      true
+    ),
+
   supportTicket: (
     category: string,
     subject: string,
@@ -638,6 +657,29 @@ export const api = {
           ? { 'X-Admin-CSRF-Token': adminCsrfToken }
           : undefined,
         body: JSON.stringify({ reply, status })
+      }
+    ),
+
+  activeBroadcast: () =>
+    request<{ broadcast: SystemBroadcastItem | null }>('/support/broadcast'),
+
+  adminGetBroadcast: () =>
+    request<{ broadcast: SystemBroadcastItem | null }>('/admin/broadcast'),
+
+  adminSaveBroadcast: (payload: {
+    kind: 'info' | 'update' | 'maintenance';
+    title: string;
+    message: string;
+    isActive: boolean;
+  }) =>
+    request<{ ok: boolean; broadcast: SystemBroadcastItem | null }>(
+      '/admin/broadcast',
+      {
+        method: 'POST',
+        headers: adminCsrfToken
+          ? { 'X-Admin-CSRF-Token': adminCsrfToken }
+          : undefined,
+        body: JSON.stringify(payload)
       }
     )
 };

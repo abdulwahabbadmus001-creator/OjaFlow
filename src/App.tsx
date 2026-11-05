@@ -242,10 +242,19 @@ export default function App() {
         {section === 'home' && <Dashboard profile={profile} business={business} data={store.data} onOpenSales={() => setSection('sales')} onOpenInventory={() => setSection('inventory')} onOpenDebts={() => setSection('debts')} />}
         {section === 'sales' && <SalesPage data={store.data} business={business} preferredLanguage={profile.preferredLanguage} addSale={store.actions.addSale} addExpense={store.actions.addExpense} addCustomer={store.actions.addCustomer} updateCustomer={store.actions.updateCustomer} addInvoice={store.actions.addInvoice} updateInvoice={store.actions.updateInvoice} />}
         {section === 'inventory' && <InventoryPage data={store.data} addProduct={store.actions.addProduct} />}
-        {section === 'debts' && <DebtsPage data={store.data} addDebt={store.actions.addDebt} updateDebtPaid={store.actions.updateDebtPaid} />}
+        {section === 'debts' && <DebtsPage data={store.data} business={business} addDebt={store.actions.addDebt} updateDebtPaid={store.actions.updateDebtPaid} />}
         {section === 'more' && <SettingsPage uid={profile.uid} profile={profile} business={business} data={store.data} onProfile={next => { store.actions.setProfile(next); setSession(next); }} onBusiness={store.actions.setBusiness} onLogout={logout} onDelete={deleted} theme={theme} setTheme={setTheme} syncStatus={store.syncStatus} lastSync={store.lastSync} onSyncNow={store.actions.syncNow} setLegalPage={setLegalPage} />}
         {quick && <QuickAction onClose={() => setQuick(false)} onNavigate={setSection} />}
-        {chat && <OjaChat data={store.data} business={business} onClose={() => setChat(false)} />}
+        {chat && (
+          <OjaChat
+            data={store.data}
+            business={business}
+            onClose={() => setChat(false)}
+            onAddSale={store.actions.addSale}
+            onAddExpense={store.actions.addExpense}
+            onAddDebt={store.actions.addDebt}
+          />
+        )}
       </AppShell>
       {legalPage && <LegalPages type={legalPage} onClose={() => setLegalPage(null)} />}
     </LanguageProvider>

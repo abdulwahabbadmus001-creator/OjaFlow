@@ -111,10 +111,12 @@ app.include_router(
 )
 
 
+@app.get("/")
 @app.get("/api/health")
 def health():
     return {
         "ok": True,
         "service": "OjaFlow API",
         "environment": settings.app_env,
+        "health": "/api/health",
     }

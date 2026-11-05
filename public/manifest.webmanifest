@@ -1,34 +1,40 @@
-﻿{
+{
   "id": "/",
-  "name": "OjaFlow",
+  "name": "OjaFlow — Trader Business Command Centre",
   "short_name": "OjaFlow",
   "description": "A trader-focused business command centre for sales, stock, expenses, debts, customers, invoices, receipts and practical business intelligence.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f4f7f5",
+  "background_color": "#064E3B",
   "theme_color": "#065F46",
   "orientation": "any",
   "prefer_related_applications": false,
   "categories": ["business", "finance", "productivity"],
   "icons": [
     {
-      "src": "/ojaflow-of.svg?v=2",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/ojaflow-of.svg?v=2",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/ojaflow-of.svg?v=2",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "/ojaflow-of.svg?v=2",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

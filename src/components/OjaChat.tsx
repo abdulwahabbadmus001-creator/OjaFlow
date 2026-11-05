@@ -31,6 +31,9 @@ import {
 
 import type {
   BusinessProfile,
+  Debt,
+  Expense,
+  Sale,
   StoreData
 } from '../types';
 
@@ -43,6 +46,13 @@ import { copyText } from '../lib/clipboard';
 import { api } from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import { useSpeechToText } from '../lib/useSpeechToText';
+import {
+  materializeDebt,
+  materializeExpense,
+  materializeSale,
+  parseVoiceAction,
+  type ParsedVoiceAction
+} from '../lib/voiceActions';
 
 import './OjaChatMarkdown.css';
 import './OjaChatHistory.css';
@@ -62,6 +72,8 @@ type Msg = {
   text: string;
 
   reaction?: Reaction;
+  pendingAction?: ParsedVoiceAction | null;
+  actionSaved?: boolean;
 };
 
 type Conversation = {
@@ -77,13 +89,16 @@ const MAX_MESSAGES_PER_CONVERSATION = 80;
 
 function makeMessage(
   role: Msg['role'],
-  text: string
+  text: string,
+  pendingAction?: ParsedVoiceAction | null
 ): Msg {
   return {
     id: crypto.randomUUID(),
     role,
     text,
-    reaction: null
+    reaction: null,
+    pendingAction: pendingAction || null,
+    actionSaved: false
   };
 }
 
@@ -420,11 +435,17 @@ const promptGroups = [
 export default function OjaChat({
   data,
   business,
-  onClose
+  onClose,
+  onAddSale,
+  onAddExpense,
+  onAddDebt
 }: {
   data: StoreData;
   business: BusinessProfile;
   onClose: () => void;
+  onAddSale?: (sale: Sale) => void;
+  onAddExpense?: (expense: Expense) => void;
+  onAddDebt?: (debt: Debt) => void;
 }) {
   const {
     tr,
@@ -528,6 +549,8 @@ export default function OjaChat({
     isSupported: speechSupported,
     isStandalonePwa,
     isListening,
+    isTranscribing,
+    voiceLevel,
     interimTranscript,
     speechLang,
     speechLangLabel,
@@ -732,6 +755,30 @@ export default function OjaChat({
         error
       );
     }
+  }
+
+  function confirmVoiceAction(
+    messageId: string,
+    action: ParsedVoiceAction
+  ) {
+    if (action.kind === 'sale' && onAddSale) {
+      onAddSale(materializeSale(action));
+    } else if (action.kind === 'expense' && onAddExpense) {
+      onAddExpense(materializeExpense(action));
+    } else if (action.kind === 'debt' && onAddDebt) {
+      onAddDebt(materializeDebt(action));
+    }
+
+    setMessages(current =>
+      current.map(msg =>
+        msg.id === messageId
+          ? {
+              ...msg,
+              actionSaved: true
+            }
+          : msg
+      )
+    );
   }
 
   function reactTo(
@@ -992,6 +1039,26 @@ export default function OjaChat({
     setBusy(true);
 
     try {
+      const parsedAction =
+        parseVoiceAction(
+          question,
+          data.products
+        );
+
+      if (parsedAction) {
+        setMessages(
+          current => [
+            ...current,
+            makeMessage(
+              'assistant',
+              `⚡ **${tr('Quick Record Ready')}**\n\n${parsedAction.summary}\n\n${tr('Tap the button below to save this record directly into your OjaFlow ledger.')}`,
+              parsedAction
+            )
+          ]
+        );
+        return;
+      }
+
       const local =
         localAnswer(
           question,
@@ -1473,6 +1540,31 @@ export default function OjaChat({
                             message.text
                           }
                         </ReactMarkdown>
+
+                        {message.pendingAction && (
+                          <div className="ojachat-action-card">
+                            {message.actionSaved ? (
+                              <span className="ojachat-action-saved">
+                                <Check size={15} />
+                                {tr('Saved to your OjaFlow records!')}
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="primary-btn compact ojachat-action-confirm-btn"
+                                onClick={() =>
+                                  confirmVoiceAction(
+                                    message.id,
+                                    message.pendingAction!
+                                  )
+                                }
+                              >
+                                <Check size={15} />
+                                {tr('Confirm & Save Record')}
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <span className="message-text">
@@ -1662,43 +1754,70 @@ export default function OjaChat({
             )}
           </div>
 
-          {isListening && (
+          {(isListening || isTranscribing) && (
             <div
               className="ojachat-stt-listening-bar"
               role="status"
               aria-live="polite"
             >
               <div className="ojachat-stt-wave" aria-hidden="true">
-                <span />
-                <span />
-                <span />
-                <span />
+                <span
+                  style={{
+                    transform: `scaleY(${Math.max(0.35, Math.min(1.6, 0.4 + voiceLevel / 70))})`
+                  }}
+                />
+                <span
+                  style={{
+                    transform: `scaleY(${Math.max(0.45, Math.min(1.8, 0.5 + voiceLevel / 55))})`
+                  }}
+                />
+                <span
+                  style={{
+                    transform: `scaleY(${Math.max(0.4, Math.min(1.7, 0.45 + voiceLevel / 60))})`
+                  }}
+                />
+                <span
+                  style={{
+                    transform: `scaleY(${Math.max(0.35, Math.min(1.5, 0.4 + voiceLevel / 75))})`
+                  }}
+                />
               </div>
 
               <div className="ojachat-stt-listening-copy">
                 <div className="ojachat-stt-listening-top">
-                  <strong>{listeningTitle}</strong>
+                  <strong>
+                    {isTranscribing
+                      ? tr('Sharpening voice & filtering noise…')
+                      : listeningTitle}
+                  </strong>
                   <span className="ojachat-stt-lang-badge">
-                    {speechLangLabel}
+                    {speechLangLabel} •{' '}
+                    {voiceLevel >= 18
+                      ? tr('Voice locked')
+                      : tr('Noise filter ON')}
                     {isStandalonePwa ? ' • PWA' : ''}
                   </span>
                 </div>
                 <small>
-                  {interimTranscript
-                    ? `“${interimTranscript}”`
-                    : listeningHint}
+                  {isTranscribing
+                    ? tr('Extracting your words cleanly from background noise…')
+                    : interimTranscript
+                      ? `“${interimTranscript}”`
+                      : listeningHint}
                 </small>
               </div>
 
-              <button
-                type="button"
-                className="ojachat-stt-stop-pill"
-                onClick={stopListening}
-                aria-label={tr('Stop voice recording')}
-              >
-                <Square size={12} />
-                <span>{tr('Done')}</span>
-              </button>
+              {isListening && (
+                <button
+                  type="button"
+                  className="ojachat-stt-stop-pill"
+                  onClick={stopListening}
+                  aria-label={tr('Stop voice recording')}
+                >
+                  <Square size={12} />
+                  <span>{tr('Done')}</span>
+                </button>
+              )}
             </div>
           )}
 

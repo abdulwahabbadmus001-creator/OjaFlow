@@ -425,3 +425,39 @@ class UserNotification(Base):
         DateTime(timezone=True),
         default=now_utc,
     )
+
+
+class SystemBroadcast(Base):
+    __tablename__ = "system_broadcasts"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=uuid_str,
+    )
+
+    kind: Mapped[str] = mapped_column(
+        String(32),
+        default="update",
+    )
+
+    title: Mapped[str] = mapped_column(String(180))
+
+    message: Mapped[str] = mapped_column(Text)
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        index=True,
+    )
+
+    updated_by: Mapped[str | None] = mapped_column(
+        String(160),
+        nullable=True,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=now_utc,
+        onupdate=now_utc,
+    )

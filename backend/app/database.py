@@ -1,4 +1,4 @@
-﻿from collections.abc import Generator
+from collections.abc import Generator
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from .config import get_settings
@@ -17,7 +17,11 @@ def normalized_database_url(url: str) -> str:
 database_url = normalized_database_url(settings.database_url)
 
 connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
-engine = create_engine(database_url, connect_args=connect_args, pool_pre_ping=True)
+engine_kwargs = {"connect_args": connect_args, "pool_pre_ping": True}
+if not database_url.startswith("sqlite"):
+    engine_kwargs["pool_recycle"] = 280
+
+engine = create_engine(database_url, **engine_kwargs)
 
 if database_url.startswith("sqlite"):
     @event.listens_for(engine, "connect")

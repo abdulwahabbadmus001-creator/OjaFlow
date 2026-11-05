@@ -3,7 +3,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import SupportTicket, UserNotification
+from ..models import SupportTicket, SystemBroadcast, UserNotification
 from ..schemas import SupportRequest
 from ..security import (
     AuthContext,
@@ -140,3 +140,31 @@ def mark_all_notifications_read(
     )
     db.commit()
     return {"ok": True}
+
+
+@router.get("/broadcast")
+def get_active_broadcast(
+    db: Session = Depends(get_db),
+):
+    broadcast = db.scalar(
+        select(SystemBroadcast)
+        .where(SystemBroadcast.is_active.is_(True))
+        .order_by(SystemBroadcast.updated_at.desc())
+        .limit(1)
+    )
+    if not broadcast:
+        return {"broadcast": None}
+    return {
+        "broadcast": {
+            "id": broadcast.id,
+            "kind": broadcast.kind,
+            "title": broadcast.title,
+            "message": broadcast.message,
+            "isActive": bool(broadcast.is_active),
+            "updatedAt": (
+                broadcast.updated_at.isoformat()
+                if broadcast.updated_at
+                else None
+            ),
+        }
+    }

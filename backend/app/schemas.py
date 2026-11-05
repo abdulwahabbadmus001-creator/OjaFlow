@@ -392,6 +392,12 @@ class ChatRequest(BaseModel):
         return res if isinstance(res, dict) else {}
 
 
+class AudioTranscribeRequest(BaseModel):
+    audioBase64: str = Field(min_length=16, max_length=6_000_000)
+    mimeType: str = Field(default="audio/webm", max_length=80)
+    preferredLanguage: Language = "en"
+
+
 class SupportRequest(BaseModel):
     category: str = Field(
         min_length=1,
@@ -447,4 +453,19 @@ class AdminTicketReplyRequest(BaseModel):
         cleaned = sanitize_text(v, 5000)
         if len(cleaned) < 2:
             raise ValueError("Reply must be at least 2 characters.")
+        return cleaned
+
+
+class AdminBroadcastRequest(BaseModel):
+    kind: Literal["info", "update", "maintenance"] = "update"
+    title: str = Field(min_length=2, max_length=180)
+    message: str = Field(min_length=2, max_length=2000)
+    isActive: bool = True
+
+    @field_validator("title", "message")
+    @classmethod
+    def _clean_broadcast_text(cls, v: str) -> str:
+        cleaned = sanitize_text(v, 2000)
+        if len(cleaned) < 2:
+            raise ValueError("Broadcast field must be at least 2 characters.")
         return cleaned

@@ -12,10 +12,12 @@ from ..models import (
     OtpChallenge,
     StoreState,
     SupportTicket,
+    SystemBroadcast,
     User,
     UserNotification,
 )
 from ..schemas import (
+    AdminBroadcastRequest,
     AdminLoginRequest,
     AdminResetUserPinRequest,
     AdminTicketReplyRequest,
@@ -533,3 +535,68 @@ def admin_reply_ticket(
         "ticket": _serialize_ticket(ticket, user),
     }
 
+
+
+
+def _serialize_broadcast(broadcast: SystemBroadcast | None) -> dict | None:
+    if not broadcast:
+        return None
+    return {
+        "id": broadcast.id,
+        "kind": broadcast.kind,
+        "title": broadcast.title,
+        "message": broadcast.message,
+        "isActive": bool(broadcast.is_active),
+        "updatedBy": broadcast.updated_by or "",
+        "updatedAt": (
+            broadcast.updated_at.isoformat() if broadcast.updated_at else None
+        ),
+    }
+
+
+@router.get("/broadcast")
+def admin_get_broadcast(
+    _auth: AdminAuthContext = Depends(current_admin),
+    db: Session = Depends(get_db),
+):
+    broadcast = db.scalar(
+        select(SystemBroadcast)
+        .order_by(SystemBroadcast.updated_at.desc())
+        .limit(1)
+    )
+    return {"broadcast": _serialize_broadcast(broadcast)}
+
+
+@router.post("/broadcast")
+def admin_save_broadcast(
+    payload: AdminBroadcastRequest,
+    auth: AdminAuthContext = Depends(current_admin_csrf),
+    db: Session = Depends(get_db),
+):
+    broadcast = db.scalar(
+        select(SystemBroadcast)
+        .order_by(SystemBroadcast.updated_at.desc())
+        .limit(1)
+    )
+    now = datetime.now(timezone.utc)
+    if broadcast is None:
+        broadcast = SystemBroadcast(
+            kind=payload.kind,
+            title=payload.title,
+            message=payload.message,
+            is_active=bool(payload.isActive),
+            updated_by=auth.admin.email,
+            updated_at=now,
+        )
+        db.add(broadcast)
+    else:
+        broadcast.kind = payload.kind
+        broadcast.title = payload.title
+        broadcast.message = payload.message
+        broadcast.is_active = bool(payload.isActive)
+        broadcast.updated_by = auth.admin.email
+        broadcast.updated_at = now
+
+    db.commit()
+    db.refresh(broadcast)
+    return {"ok": True, "broadcast": _serialize_broadcast(broadcast)}

@@ -11,6 +11,7 @@ import {
   ReceiptText,
   Search,
   Send,
+  Share2,
   Users,
   WalletCards
 } from 'lucide-react';
@@ -34,6 +35,7 @@ import {
   printInvoice,
   printReceipt
 } from '../lib/documents';
+import { shareOrDownloadSaleReceiptImage } from '../lib/receiptImage';
 import { useI18n } from '../lib/i18n';
 
 export default function SalesPage({
@@ -129,6 +131,15 @@ export default function SalesPage({
                   <span>{tr(sale.paymentMethod)}</span>
                   <strong className="right">{money(sale.total)}</strong>
                   <span className="row-actions right">
+                    <button
+                      className="icon-action"
+                      title={tr('Share or download PNG image receipt')}
+                      onClick={() =>
+                        void shareOrDownloadSaleReceiptImage(business, sale)
+                      }
+                    >
+                      <Share2 size={16} />
+                    </button>
                     <button className="icon-action" title={tr('Open receipt')} onClick={() => printReceipt(business, sale, preferredLanguage)}><Printer size={16} /></button>
                     <button className="icon-action" title={tr('Download receipt')} onClick={() => downloadReceipt(business, sale, preferredLanguage)}><Download size={16} /></button>
                     {customer?.phone && <button className="icon-action whatsapp" title={tr('Send receipt summary on WhatsApp')} onClick={() => openReceiptWhatsApp(sale)}><MessageCircle size={16} /></button>}

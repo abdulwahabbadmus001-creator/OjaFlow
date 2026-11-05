@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import { HandCoins, Plus, Phone, Building2, UserRound } from 'lucide-react';
-import type { Debt, StoreData } from '../types';
+import { HandCoins, Plus, Phone, Building2, Share2, UserRound } from 'lucide-react';
+import type { BusinessProfile, Debt, StoreData } from '../types';
 import { money, todayISO, uid } from '../lib/format';
 import Modal from '../components/Modal';
 import { useI18n } from '../lib/i18n';
+import { shareOrDownloadDebtReminderImage } from '../lib/receiptImage';
 
 export default function DebtsPage({
   data,
+  business,
   addDebt,
   updateDebtPaid
 }: {
   data: StoreData;
+  business: BusinessProfile;
   addDebt: (debt: Debt) => void;
   updateDebtPaid: (id: string, paid: number) => void;
 }) {
@@ -63,15 +66,28 @@ export default function DebtsPage({
               </div>
 
               {remaining > 0 && (
-                <button
-                  className="secondary-btn full"
-                  onClick={() => {
-                    const value = prompt(tr('Total amount paid so far'), String(debt.paid));
-                    if (value !== null) updateDebtPaid(debt.id, Number(value) || 0);
-                  }}
-                >
-                  {tr('Record payment')}
-                </button>
+                <div className="crm-actions">
+                  <button
+                    className="secondary-btn full"
+                    onClick={() => {
+                      const value = prompt(tr('Total amount paid so far'), String(debt.paid));
+                      if (value !== null) updateDebtPaid(debt.id, Number(value) || 0);
+                    }}
+                  >
+                    {tr('Record payment')}
+                  </button>
+                  {debt.type === 'customer' && (
+                    <button
+                      type="button"
+                      className="secondary-btn full"
+                      onClick={() =>
+                        void shareOrDownloadDebtReminderImage(business, debt)
+                      }
+                    >
+                      <Share2 size={15} /> {tr('Share Reminder Card')}
+                    </button>
+                  )}
+                </div>
               )}
             </article>
           );

@@ -7,6 +7,7 @@ import {
   KeyRound,
   Lock,
   LogOut,
+  Megaphone,
   MessageSquareReply,
   RefreshCw,
   Search,
@@ -40,7 +41,14 @@ export default function AdminPage({
   const [loginError, setLoginError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const [tab, setTab] = useState<'users' | 'tickets'>('users');
+  const [tab, setTab] = useState<'users' | 'tickets' | 'broadcast'>('users');
+  const [broadcastKind, setBroadcastKind] = useState<
+    'info' | 'update' | 'maintenance'
+  >('update');
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastActive, setBroadcastActive] = useState(false);
+  const [savingBroadcast, setSavingBroadcast] = useState(false);
   const [stats, setStats] = useState<AdminOverviewStats>({
     totalUsers: 0,
     activeUsers: 0,
@@ -98,6 +106,13 @@ export default function AdminPage({
       setStats(overview.stats);
       setUsers(overview.users);
       setTickets(overview.tickets);
+      const bRes = await api.adminGetBroadcast().catch(() => ({ broadcast: null }));
+      if (bRes.broadcast) {
+        setBroadcastKind(bRes.broadcast.kind);
+        setBroadcastTitle(bRes.broadcast.title);
+        setBroadcastMessage(bRes.broadcast.message);
+        setBroadcastActive(bRes.broadcast.isActive);
+      }
     } catch (e) {
       setFeedback({
         kind: 'error',
@@ -465,6 +480,15 @@ export default function AdminPage({
             <MessageSquareReply size={17} /> Help &amp; Support Tickets (
             {tickets.length})
           </button>
+
+          <button
+            type="button"
+            className={tab === 'broadcast' ? 'active' : ''}
+            onClick={() => setTab('broadcast')}
+          >
+            <Megaphone size={17} /> Live Broadcast Banner{' '}
+            {broadcastActive ? '(ACTIVE)' : ''}
+          </button>
         </div>
 
         {tab === 'users' ? (
@@ -658,7 +682,7 @@ export default function AdminPage({
               </div>
             )}
           </section>
-        ) : (
+        ) : tab === 'tickets' ? (
           <section className="panel admin-panel">
             <div className="admin-toolbar">
               <div>
@@ -779,6 +803,122 @@ export default function AdminPage({
                 })}
               </div>
             )}
+          </section>
+        ) : (
+          <section className="panel admin-panel">
+            <div className="admin-toolbar">
+              <div>
+                <h2>Live Broadcast &amp; Maintenance Announcement</h2>
+                <p className="muted">
+                  Publish a real-time announcement or maintenance notice at the
+                  top of every market trader&apos;s OjaFlow dashboard.
+                </p>
+              </div>
+            </div>
+
+            <form
+              className="form-stack"
+              style={{ maxWidth: 680, padding: '18px 20px' }}
+              onSubmit={event => {
+                event.preventDefault();
+                setSavingBroadcast(true);
+                setFeedback(null);
+                void api
+                  .adminSaveBroadcast({
+                    kind: broadcastKind,
+                    title: broadcastTitle.trim(),
+                    message: broadcastMessage.trim(),
+                    isActive: broadcastActive
+                  })
+                  .then(res => {
+                    setFeedback({
+                      kind: 'success',
+                      text: res.broadcast?.isActive
+                        ? 'Live broadcast banner published to all trader dashboards!'
+                        : 'Broadcast banner saved and turned off.'
+                    });
+                  })
+                  .catch(err => {
+                    setFeedback({
+                      kind: 'error',
+                      text:
+                        err instanceof Error
+                          ? err.message
+                          : 'Could not save broadcast.'
+                    });
+                  })
+                  .finally(() => setSavingBroadcast(false));
+              }}
+            >
+              <div className="two-col">
+                <label>
+                  Banner Style
+                  <select
+                    value={broadcastKind}
+                    onChange={event =>
+                      setBroadcastKind(
+                        event.target.value as 'info' | 'update' | 'maintenance'
+                      )
+                    }
+                  >
+                    <option value="update">Feature Update (Emerald)</option>
+                    <option value="info">General Notice (Neutral)</option>
+                    <option value="maintenance">
+                      Maintenance Alert (Amber Warning)
+                    </option>
+                  </select>
+                </label>
+
+                <label>
+                  Visibility Status
+                  <select
+                    value={broadcastActive ? 'active' : 'inactive'}
+                    onChange={event =>
+                      setBroadcastActive(event.target.value === 'active')
+                    }
+                  >
+                    <option value="active">Active (Visible to all traders)</option>
+                    <option value="inactive">Hidden (Turned off)</option>
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                Announcement Headline
+                <input
+                  value={broadcastTitle}
+                  onChange={event => setBroadcastTitle(event.target.value)}
+                  placeholder="e.g. OjaChat Voice Recording is now live!"
+                  required
+                />
+              </label>
+
+              <label>
+                Announcement Message
+                <textarea
+                  rows={3}
+                  value={broadcastMessage}
+                  onChange={event => setBroadcastMessage(event.target.value)}
+                  placeholder="e.g. Tap the microphone button inside OjaChat to speak in Pidgin, Yorùbá, Hausa, Igbo, or English."
+                  required
+                />
+              </label>
+
+              <div className="admin-ticket-actions">
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  disabled={savingBroadcast}
+                >
+                  <Megaphone size={16} />
+                  {savingBroadcast
+                    ? 'Saving…'
+                    : broadcastActive
+                      ? 'Publish Live Broadcast'
+                      : 'Save & Hide Broadcast'}
+                </button>
+              </div>
+            </form>
           </section>
         )}
       </main>

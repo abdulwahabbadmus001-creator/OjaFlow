@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 
@@ -6,8 +7,8 @@ from google import genai
 from google.genai import types
 
 from ..config import get_settings
-from ..schemas import ChatRequest
-from ..security import AuthContext, current_auth_csrf
+from ..schemas import AudioTranscribeRequest, ChatRequest
+from ..security import AuthContext, current_auth_csrf, sanitize_text
 
 
 router = APIRouter(
@@ -215,3 +216,66 @@ Never invent business figures that are not present in the supplied data.
                 "Please try again shortly."
             ),
         ) from exc
+
+
+
+@router.post("/transcribe")
+def transcribe_audio(
+    payload: AudioTranscribeRequest,
+    _auth: AuthContext = Depends(current_auth_csrf),
+):
+    """
+    High-accuracy noise-resistant speech transcription for Nigerian traders.
+    Ignores background market noise, chatter, generator hum, and traffic,
+    transcribing only the primary speaker's foreground voice.
+    """
+    if not settings.gemini_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="AI voice transcription is not configured.",
+        )
+
+    language_names = {
+        "en": "Nigerian English",
+        "pcm": "Nigerian Pidgin English",
+        "yo": "Yorùbá (or Nigerian English)",
+        "ha": "Hausa (or Nigerian English)",
+        "ig": "Igbo (or Nigerian English)",
+    }
+    target_lang = language_names.get(
+        payload.preferredLanguage, "Nigerian English"
+    )
+
+    try:
+        raw_bytes = base64.b64decode(payload.audioBase64)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail="Invalid audio payload."
+        ) from exc
+
+    mime = (payload.mimeType or "audio/webm").split(";")[0].strip()
+
+    try:
+        client = genai.Client(api_key=settings.gemini_api_key)
+        response = client.models.generate_content(
+            model=settings.gemini_model,
+            contents=[
+                types.Part.from_bytes(data=raw_bytes, mime_type=mime),
+                (
+                    f"Transcribe ONLY the main foreground speaker's voice from this audio in {target_lang}. "
+                    "Strictly ignore all background noise, distant chatter, music, generator hum, or silence. "
+                    "Convert spoken Naira amounts and quantities into clean numbers (e.g. '45000', '3 bags of rice'). "
+                    "Return ONLY the exact transcribed text with no commentary, no quotes, and no extra words. "
+                    "If there is no clear human speech from the main speaker, return an empty string."
+                ),
+            ],
+            config=types.GenerateContentConfig(
+                temperature=0.0,
+                max_output_tokens=300,
+            ),
+        )
+        transcript = sanitize_text(response.text or "", 1000).strip()
+        return {"transcript": transcript}
+    except Exception as exc:
+        logger.warning("Audio transcription fallback failed: %s", exc)
+        return {"transcript": ""}

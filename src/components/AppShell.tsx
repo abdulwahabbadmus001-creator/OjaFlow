@@ -26,6 +26,7 @@ import type { ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import MaintenanceBanner from './MaintenanceBanner';
+import PwaInstallBanner from './PwaInstallBanner';
 import BrandLogo from './BrandLogo';
 
 const nav: Array<{
@@ -256,6 +257,7 @@ export default function AppShell({
       )}
 
       <main className="premium-main">
+        <PwaInstallBanner />
         <MaintenanceBanner />
 
         {notifications.length > 0 && (
