@@ -316,7 +316,7 @@ export default function AdminPage({
                 name="email"
                 type="email"
                 autoComplete="username"
-                placeholder="admin@system.ojaflow.internal"
+                placeholder="adminwbadmus@ojaflow.com"
                 required
               />
             </label>

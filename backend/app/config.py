@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     cookie_samesite: str = "lax"
 
     # Dedicated System Admin credentials (configured via ADMIN_EMAIL and ADMIN_PASSWORD env vars)
-    admin_email: str = "admin@system.ojaflow.internal"
-    admin_password: str = "OjaFlow#Admin2026!"
+    admin_email: str = "adminwbadmus@ojaflow.com"
+    admin_password: str = "OjaFlowAdmin007$$"
 
     # OTP providers:
     # console   -> prints OTP in backend terminal
@@ -44,7 +44,9 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.8-flash"
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=(".env", "backend/.env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     @property

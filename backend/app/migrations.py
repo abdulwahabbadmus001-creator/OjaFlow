@@ -125,14 +125,18 @@ def ensure_ojatag_schema(engine: Engine) -> None:
     _seed_system_admin(engine)
 
 
+DEFAULT_ADMIN_EMAIL = "adminwbadmus@ojaflow.com"
+DEFAULT_ADMIN_PASSWORD = "OjaFlowAdmin007$$"
+
+
 def _seed_system_admin(engine: Engine) -> None:
     """
     Ensure the dedicated system administrator account configured via
     ADMIN_EMAIL and ADMIN_PASSWORD exists in `admin_users` with role='admin'.
     """
     settings = get_settings()
-    admin_email = (settings.admin_email or "").strip().lower()
-    admin_password = (settings.admin_password or "").strip()
+    admin_email = (settings.admin_email or DEFAULT_ADMIN_EMAIL).strip().lower()
+    admin_password = (settings.admin_password or DEFAULT_ADMIN_PASSWORD).strip()
     if not admin_email or not admin_password:
         return
 
@@ -150,13 +154,17 @@ def _seed_system_admin(engine: Engine) -> None:
         )
         raw_pw = admin_password.encode("utf-8")[:72]
         if existing_admin is None:
-            pw_hash = bcrypt.hashpw(raw_pw, bcrypt.gensalt(rounds=12)).decode("utf-8")
+            pw_hash = bcrypt.hashpw(
+                raw_pw, bcrypt.gensalt(rounds=12)
+            ).decode("utf-8")
             session.add(
                 AdminUser(
                     email=admin_email,
                     role="admin",
                     password_hash=pw_hash,
                     is_active=True,
+                    failed_login_attempts=0,
+                    locked_until_epoch=None,
                 )
             )
             session.commit()
@@ -167,6 +175,13 @@ def _seed_system_admin(engine: Engine) -> None:
                 changed = True
             if existing_admin.role != "admin":
                 existing_admin.role = "admin"
+                changed = True
+            if (
+                existing_admin.failed_login_attempts
+                or existing_admin.locked_until_epoch
+            ):
+                existing_admin.failed_login_attempts = 0
+                existing_admin.locked_until_epoch = None
                 changed = True
             if not existing_admin.password_hash or not bcrypt.checkpw(
                 raw_pw, existing_admin.password_hash.encode("utf-8")
