@@ -2,6 +2,7 @@ import BrandLogo from './components/BrandLogo';
 import { useEffect, useMemo, useState } from 'react';
 import type { AppSection, BusinessProfile, ThemePreference, UserProfile } from './types';
 import AuthPage from './pages/AuthPage';
+import AdminPage from './pages/AdminPage';
 import BusinessSetup from './pages/BusinessSetup';
 import Dashboard from './pages/Dashboard';
 import SalesPage from './pages/SalesPage';
@@ -21,6 +22,25 @@ import LegalPages from './components/LegalPages';
 
 const THEME_KEY = 'ojaflow:theme';
 
+// Private, unguessable admin route — never linked publicly in the UI.
+// Access only by typing /#secret-admin-portal directly in the browser address bar
+// (or override via VITE_ADMIN_PORTAL_HASH in .env).
+const SECRET_ADMIN_SLUG = (
+  (import.meta.env.VITE_ADMIN_PORTAL_HASH as string | undefined) ||
+  'secret-admin-portal'
+)
+  .trim()
+  .replace(/^#\/?|^\/+/, '');
+
+function isSecretAdminRoute(): boolean {
+  const hashSlug = window.location.hash.replace(/^#\/?/, '').trim();
+  const pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').trim();
+  return (
+    Boolean(SECRET_ADMIN_SLUG) &&
+    (hashSlug === SECRET_ADMIN_SLUG || pathSlug === SECRET_ADMIN_SLUG)
+  );
+}
+
 function resolveTheme(preference: ThemePreference) {
   if (preference !== 'system') return preference;
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -36,6 +56,19 @@ export default function App() {
   const [cookieConsentAccepted, setCookieConsentAccepted] = useState(
     () => localStorage.getItem(COOKIE_CONSENT_KEY) === 'true'
   );
+  const [adminView, setAdminView] = useState(() => isSecretAdminRoute());
+
+  useEffect(() => {
+    const syncRoute = () => {
+      setAdminView(isSecretAdminRoute());
+    };
+    window.addEventListener('hashchange', syncRoute);
+    window.addEventListener('popstate', syncRoute);
+    return () => {
+      window.removeEventListener('hashchange', syncRoute);
+      window.removeEventListener('popstate', syncRoute);
+    };
+  }, []);
 
   const uid = session?.uid || '';
   const store = useStore(uid);
@@ -117,6 +150,17 @@ export default function App() {
     if (!session || !currentProfile || !currentBusiness) return null;
     return { profile: currentProfile, business: currentBusiness };
   }, [session, currentProfile, currentBusiness]);
+
+  if (adminView) {
+    return (
+      <AdminPage
+        onExitAdmin={() => {
+          window.history.replaceState(null, '', '/');
+          setAdminView(false);
+        }}
+      />
+    );
+  }
 
   if (checking) {
     return (

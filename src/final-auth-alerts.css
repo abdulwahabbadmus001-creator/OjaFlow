@@ -401,3 +401,562 @@
         animation: none;
     }
 }
+
+
+/* =========================================================
+ * TICKING RED LOW-STOCK WARNING ALARM BANNER (DASHBOARD TOP)
+ * ========================================================= */
+.low-stock-alarm-banner {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  margin: 0 0 20px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 2px solid rgba(239, 68, 68, 0.75);
+  background: linear-gradient(
+      135deg,
+      rgba(220, 38, 38, 0.22),
+      rgba(153, 27, 27, 0.14)
+    ),
+    var(--of-surface, var(--panel));
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+  animation: ojaflowRedAlarmPulse 1.25s ease-in-out infinite;
+  overflow: hidden;
+}
+
+.low-stock-alarm-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.low-stock-alarm-icon-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(239, 68, 68, 0.22);
+  border: 1px solid rgba(248, 113, 113, 0.55);
+  color: #fca5a5;
+}
+
+.low-stock-alarm-beacon {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 12px #ef4444;
+  animation: ojaflowRedBeaconBlink 0.75s steps(2, start) infinite;
+}
+
+.low-stock-alarm-bell {
+  animation: ojaflowBellTick 0.9s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+.low-stock-alarm-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.low-stock-alarm-headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.low-stock-alarm-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.low-stock-alarm-total {
+  font-size: 0.78rem;
+  color: var(--of-ink, var(--ink));
+  opacity: 0.9;
+}
+
+.low-stock-alarm-copy h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--of-ink, var(--ink));
+}
+
+.low-stock-alarm-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(254, 202, 202, 0.45);
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.low-stock-alarm-cta:hover {
+  background: #b91c1c;
+}
+
+.low-stock-alarm-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.low-stock-alarm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  background: rgba(127, 29, 29, 0.28);
+  color: var(--of-ink, var(--ink));
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.low-stock-alarm-chip.out {
+  border-color: rgba(239, 68, 68, 0.85);
+  background: rgba(185, 28, 28, 0.36);
+}
+
+.low-stock-alarm-chip .chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #ef4444;
+  animation: ojaflowRedBeaconBlink 0.85s steps(2, start) infinite;
+}
+
+.low-stock-alarm-chip .chip-count {
+  font-weight: 700;
+  color: #fca5a5;
+}
+
+@keyframes ojaflowRedAlarmPulse {
+  0%,
+  100% {
+    border-color: rgba(239, 68, 68, 0.55);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35);
+  }
+  50% {
+    border-color: rgba(248, 113, 113, 1);
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.14);
+  }
+}
+
+@keyframes ojaflowRedBeaconBlink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.25;
+    transform: scale(0.82);
+  }
+}
+
+@keyframes ojaflowBellTick {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-16deg);
+  }
+  40% {
+    transform: rotate(16deg);
+  }
+  60% {
+    transform: rotate(-10deg);
+  }
+  80% {
+    transform: rotate(10deg);
+  }
+}
+
+/* =========================================================
+ * REAL-TIME USER SUPPORT NOTIFICATION BANNER
+ * ========================================================= */
+.user-support-banner-stack {
+  display: grid;
+  gap: 10px;
+  max-width: 1180px;
+  margin: 14px auto 0;
+  padding: 0 18px;
+}
+
+.user-support-notification-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 15px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: linear-gradient(
+      135deg,
+      rgba(16, 185, 129, 0.16),
+      rgba(5, 150, 105, 0.06)
+    ),
+    var(--of-surface, var(--panel));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+}
+
+.user-support-banner-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.user-support-banner-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.user-support-banner-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-support-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.22);
+  color: #34d399;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.user-support-banner-body strong {
+  font-size: 0.94rem;
+  color: var(--of-ink, var(--ink));
+}
+
+.user-support-banner-body p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--of-ink, var(--ink));
+  white-space: pre-wrap;
+}
+
+.user-support-dismiss-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--of-ink, var(--ink));
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.support-tickets-history {
+  margin-top: 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.support-ticket-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.support-ticket-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.support-ticket-reply {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border-left: 3px solid #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.support-ticket-reply p {
+  margin: 4px 0 0;
+}
+
+/* =========================================================
+ * ENTERPRISE ADMIN CONSOLE SUITE
+ * ========================================================= */
+.auth-admin-portal-link {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: center;
+}
+
+.admin-login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg, #07110d);
+}
+
+.admin-login-card {
+  width: min(100%, 460px);
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+  border-radius: 22px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  background: var(--panel, #0d1b15);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+
+.admin-login-header {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-login-header h1 {
+  margin: 0;
+}
+
+.admin-shield-badge {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(212, 175, 55, 0.16);
+  color: #f1d978;
+}
+
+.admin-console-shell {
+  min-height: 100vh;
+  background: var(--bg, #07110d);
+  color: var(--ink, #f3f7f4);
+}
+
+.admin-console-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--panel, #0d1b15);
+}
+
+.admin-console-brand,
+.admin-console-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(212, 175, 55, 0.16);
+  color: #f1d978;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.admin-email-tag {
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+
+.admin-console-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 18px 60px;
+  display: grid;
+  gap: 20px;
+}
+
+.admin-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+.admin-kpi-card {
+  display: grid;
+  gap: 4px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: var(--panel, #0d1b15);
+}
+
+.admin-kpi-card strong {
+  font-size: 1.85rem;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-tabs button.active {
+  background: rgba(212, 175, 55, 0.18);
+  border-color: rgba(212, 175, 55, 0.55);
+  color: #f1d978;
+}
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.admin-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: min(100%, 340px);
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.admin-search-box input {
+  border: none;
+  background: transparent;
+  color: inherit;
+  width: 100%;
+  outline: none;
+}
+
+.admin-user-list,
+.admin-ticket-list {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-user-card,
+.admin-ticket-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-user-title,
+.admin-user-meta,
+.admin-user-actions,
+.admin-ticket-actions,
+.admin-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-code-chip {
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  font-family: monospace;
+  font-size: 0.78rem;
+}
+
+.admin-pin-reset-drawer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.admin-ticket-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-ticket-message {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  white-space: pre-wrap;
+}
+
+.status-badge.red {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+@media (max-width: 680px) {
+  .low-stock-alarm-top,
+  .user-support-notification-banner {
+    grid-template-columns: 1fr;
+  }
+}

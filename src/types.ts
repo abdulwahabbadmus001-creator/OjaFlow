@@ -226,3 +226,71 @@ export type AppSection =
   | 'inventory'
   | 'debts'
   | 'more';
+
+export interface UserNotificationItem {
+  id: string;
+  ticketId?: string | null;
+  kind: 'support_reply' | 'system' | string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt?: string | null;
+}
+
+export interface SupportTicketItem {
+  id: string;
+  category: string;
+  subject: string;
+  message: string;
+  status: 'open' | 'answered' | 'closed' | string;
+  adminReply?: string;
+  repliedBy?: string;
+  repliedAt?: string | null;
+  createdAt?: string | null;
+}
+
+export interface AdminAccount {
+  id: string;
+  email: string;
+  role: string;
+  lastLoginAt?: string | null;
+}
+
+export interface AdminUserRow {
+  uid: string;
+  ojaTag: string;
+  phoneNumber: string;
+  firstName: string;
+  lastName: string;
+  otherName?: string;
+  preferredLanguage: LanguagePreference;
+  securityQuestion?: string;
+  isActive: boolean;
+  isPinLocked: boolean;
+  isRecoveryLocked: boolean;
+  failedPinAttempts: number;
+  failedRecoveryAttempts: number;
+  lockedUntilEpoch?: number | null;
+  recoveryLockedUntilEpoch?: number | null;
+  businessName?: string;
+  businessCategory?: string;
+  createdAt?: string | null;
+}
+
+export interface AdminTicketRow extends SupportTicketItem {
+  userId: string;
+  userName: string;
+  userPhone: string;
+  userOjaTag: string;
+  businessName?: string;
+}
+
+export interface AdminOverviewStats {
+  totalUsers: number;
+  activeUsers: number;
+  deactivatedUsers: number;
+  lockedUsers: number;
+  totalTickets: number;
+  openTickets: number;
+  answeredTickets: number;
+}

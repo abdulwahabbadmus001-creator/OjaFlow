@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  BellRing,
   CircleAlert,
   HandCoins,
   Package,
@@ -43,6 +44,10 @@ export default function Dashboard({
   );
 
   const stockAlerts = [...outOfStockProducts, ...lowStockProducts];
+  const totalUnitsInStock = data.products.reduce(
+    (sum, product) => sum + Math.max(0, Number(product.stock) || 0),
+    0
+  );
 
   const hour = new Date().getHours();
 
@@ -62,6 +67,77 @@ export default function Dashboard({
 
   return (
     <>
+      {stockAlerts.length > 0 && (
+        <section
+          className="low-stock-alarm-banner"
+          role="alert"
+          aria-live="assertive"
+        >
+          <div className="low-stock-alarm-top">
+            <div className="low-stock-alarm-icon-wrap">
+              <span className="low-stock-alarm-beacon" />
+              <BellRing size={22} className="low-stock-alarm-bell" />
+            </div>
+
+            <div className="low-stock-alarm-copy">
+              <div className="low-stock-alarm-headline">
+                <span className="low-stock-alarm-tag">
+                  URGENT LOW-STOCK ALARM
+                </span>
+                <span className="low-stock-alarm-total">
+                  Total shop stock: <strong>{totalUnitsInStock} units</strong> across{' '}
+                  {data.products.length} item{data.products.length === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              <h2>
+                {outOfStockProducts.length > 0 && lowStockProducts.length > 0
+                  ? `${outOfStockProducts.length} item${
+                      outOfStockProducts.length === 1 ? '' : 's'
+                    } out of stock & ${lowStockProducts.length} running low!`
+                  : outOfStockProducts.length > 0
+                    ? `${outOfStockProducts.length} product${
+                        outOfStockProducts.length === 1 ? '' : 's'
+                      } completely out of stock (0 left)!`
+                    : `${lowStockProducts.length} product${
+                        lowStockProducts.length === 1 ? '' : 's'
+                      } running dangerously low on stock!`}
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              className="low-stock-alarm-cta"
+              onClick={onOpenInventory}
+            >
+              Restock Now <ArrowRight size={16} />
+            </button>
+          </div>
+
+          <div className="low-stock-alarm-items">
+            {stockAlerts.map(product => {
+              const isOut = product.stock <= 0;
+              return (
+                <button
+                  type="button"
+                  key={product.id}
+                  className={`low-stock-alarm-chip ${isOut ? 'out' : 'low'}`}
+                  onClick={onOpenInventory}
+                >
+                  <span className="chip-dot" />
+                  <strong>{product.name}</strong>
+                  <span className="chip-count">
+                    {isOut
+                      ? '0 left • OUT OF STOCK'
+                      : `${product.stock} left (min ${product.reorderLevel})`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <header className="page-head dashboard-head">
         <div>
           <span className="eyebrow">

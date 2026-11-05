@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     cookie_samesite: str = "lax"
 
+    # Dedicated System Admin credentials (configured via ADMIN_EMAIL and ADMIN_PASSWORD env vars)
+    admin_email: str = "admin@system.ojaflow.internal"
+    admin_password: str = "OjaFlow#Admin2026!"
+
     # OTP providers:
     # console   -> prints OTP in backend terminal
     # whatsapp  -> sends OTP through WhatsApp Cloud API

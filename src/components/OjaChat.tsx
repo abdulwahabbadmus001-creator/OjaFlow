@@ -16,8 +16,11 @@ import {
   History,
   Lightbulb,
   MessageSquarePlus,
+  Mic,
+  MicOff,
   Send,
   Sparkles,
+  Square,
   Store,
   ThumbsDown,
   ThumbsUp,
@@ -39,6 +42,7 @@ import {
 import { copyText } from '../lib/clipboard';
 import { api } from '../lib/api';
 import { useI18n } from '../lib/i18n';
+import { useSpeechToText } from '../lib/useSpeechToText';
 
 import './OjaChatMarkdown.css';
 import './OjaChatHistory.css';
@@ -515,6 +519,36 @@ export default function OjaChat({
   const storageKeyRef =
     useRef(storageKey);
 
+  const composerInputRef =
+    useRef<HTMLTextAreaElement | null>(
+      null
+    );
+
+  const {
+    isSupported: speechSupported,
+    isStandalonePwa,
+    isListening,
+    interimTranscript,
+    speechLang,
+    speechLangLabel,
+    listeningTitle,
+    listeningHint,
+    toast: speechToast,
+    clearToast: clearSpeechToast,
+    stopListening,
+    toggleListening
+  } = useSpeechToText({
+    language,
+    onTranscriptChange: nextText => {
+      setInput(nextText);
+    },
+    onSpeechEnd: () => {
+      window.setTimeout(() => {
+        composerInputRef.current?.focus();
+      }, 60);
+    }
+  });
+
   const snapshot =
     useMemo(
       () =>
@@ -860,6 +894,10 @@ export default function OjaChat({
   async function ask(
     text = input
   ) {
+    if (isListening) {
+      stopListening();
+    }
+
     const question =
       text.trim();
 
@@ -1624,6 +1662,80 @@ export default function OjaChat({
             )}
           </div>
 
+          {isListening && (
+            <div
+              className="ojachat-stt-listening-bar"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="ojachat-stt-wave" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+                <span />
+              </div>
+
+              <div className="ojachat-stt-listening-copy">
+                <div className="ojachat-stt-listening-top">
+                  <strong>{listeningTitle}</strong>
+                  <span className="ojachat-stt-lang-badge">
+                    {speechLangLabel}
+                    {isStandalonePwa ? ' • PWA' : ''}
+                  </span>
+                </div>
+                <small>
+                  {interimTranscript
+                    ? `“${interimTranscript}”`
+                    : listeningHint}
+                </small>
+              </div>
+
+              <button
+                type="button"
+                className="ojachat-stt-stop-pill"
+                onClick={stopListening}
+                aria-label={tr('Stop voice recording')}
+              >
+                <Square size={12} />
+                <span>{tr('Done')}</span>
+              </button>
+            </div>
+          )}
+
+          {speechToast && !isListening && (
+            <div
+              className={`ojachat-stt-toast ${speechToast.kind}`}
+              role="status"
+              aria-live="polite"
+            >
+              <div className="ojachat-stt-toast-copy">
+                <strong>{speechToast.title}</strong>
+                <span>{speechToast.message}</span>
+              </div>
+
+              <div className="ojachat-stt-toast-actions">
+                <button
+                  type="button"
+                  className="ojachat-stt-type-btn"
+                  onClick={() => {
+                    clearSpeechToast();
+                    composerInputRef.current?.focus();
+                  }}
+                >
+                  {tr('Switch to typing')}
+                </button>
+                <button
+                  type="button"
+                  className="ojachat-stt-dismiss-btn"
+                  onClick={clearSpeechToast}
+                  aria-label={tr('Dismiss voice notice')}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+
           <form
             className="chat-input"
 
@@ -1636,6 +1748,7 @@ export default function OjaChat({
             }
           >
             <textarea
+              ref={composerInputRef}
               rows={1}
 
               value={
@@ -1664,10 +1777,42 @@ export default function OjaChat({
                 }
               }
 
-              placeholder={tr(
-                'Ask OjaChat anything…'
-              )}
+              placeholder={
+                isListening
+                  ? listeningTitle
+                  : tr(
+                      'Ask OjaChat anything…'
+                    )
+              }
             />
+
+            <button
+              type="button"
+              className={`ojachat-mic-btn ${
+                isListening ? 'listening' : ''
+              } ${!speechSupported ? 'unsupported' : ''}`}
+              onClick={() => toggleListening(input)}
+              disabled={busy}
+              title={
+                isListening
+                  ? `${listeningTitle} (${speechLang})`
+                  : `${tr('Speak in your language')} (${speechLangLabel})`
+              }
+              aria-label={
+                isListening
+                  ? tr('Stop voice recording')
+                  : `${tr('Speak in your language')} (${speechLangLabel})`
+              }
+              aria-pressed={isListening}
+            >
+              {isListening ? (
+                <Square size={17} />
+              ) : speechSupported ? (
+                <Mic size={19} />
+              ) : (
+                <MicOff size={18} />
+              )}
+            </button>
 
             <button
               type="submit"

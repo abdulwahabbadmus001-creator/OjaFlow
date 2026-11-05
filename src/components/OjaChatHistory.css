@@ -574,3 +574,251 @@
             200px;
     }
 }
+
+
+/* ==========================================================
+   OJAFLOW — PWA SPEECH-TO-TEXT (STT) COMPOSER & FEEDBACK
+   ========================================================== */
+
+.chat-input .ojachat-mic-btn {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(11, 107, 69, 0.28);
+  background: var(--green-50, rgba(11, 107, 69, 0.1));
+  color: var(--green-800, #0b6b45);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.chat-input .ojachat-mic-btn:hover:not(:disabled) {
+  border-color: var(--green-700, #0b6b45);
+  background: rgba(11, 107, 69, 0.16);
+  transform: translateY(-1px);
+}
+
+.chat-input .ojachat-mic-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.chat-input .ojachat-mic-btn.unsupported {
+  border-color: var(--line, rgba(128, 128, 128, 0.28));
+  background: var(--panel-soft, rgba(128, 128, 128, 0.08));
+  color: var(--muted, #667085);
+}
+
+.chat-input .ojachat-mic-btn.listening {
+  background: #dc2626;
+  border-color: #ef4444;
+  color: #ffffff;
+  animation: ojachat-mic-pulse 1.35s infinite ease-in-out;
+}
+
+@keyframes ojachat-mic-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 11px rgba(220, 38, 38, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+/* Pulsing Listening Status Bar */
+.ojachat-stt-listening-bar {
+  margin: 0 12px 8px;
+  padding: 10px 12px;
+  border-radius: 13px;
+  border: 1.5px solid rgba(220, 38, 38, 0.42);
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.94), rgba(185, 28, 28, 0.9));
+  color: #fff5f5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 20px rgba(185, 28, 28, 0.22);
+  animation: ojachat-listening-glow 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes ojachat-listening-glow {
+  from {
+    border-color: rgba(248, 113, 113, 0.4);
+  }
+  to {
+    border-color: rgba(254, 202, 202, 0.92);
+  }
+}
+
+.ojachat-stt-wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.ojachat-stt-wave span {
+  width: 3.5px;
+  height: 8px;
+  border-radius: 999px;
+  background: #fecaca;
+  animation: ojachat-wave-bar 0.85s infinite ease-in-out;
+}
+
+.ojachat-stt-wave span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.ojachat-stt-wave span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.ojachat-stt-wave span:nth-child(4) {
+  animation-delay: 0.45s;
+}
+
+@keyframes ojachat-wave-bar {
+  0%, 100% {
+    height: 6px;
+    opacity: 0.65;
+  }
+  50% {
+    height: 20px;
+    opacity: 1;
+  }
+}
+
+.ojachat-stt-listening-copy {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.ojachat-stt-listening-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ojachat-stt-listening-top strong {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.ojachat-stt-lang-badge {
+  font-size: 0.63rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+.ojachat-stt-listening-copy small {
+  font-size: 0.7rem;
+  color: #fee2e2;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ojachat-stt-stop-pill {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  font-size: 0.69rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.ojachat-stt-stop-pill:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+/* Localized Fallback Toast */
+.ojachat-stt-toast {
+  margin: 0 12px 8px;
+  padding: 10px 12px;
+  border-radius: 13px;
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  background: var(--amber-soft, rgba(254, 243, 199, 0.95));
+  color: var(--ink, #1f2937);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ojachat-stt-toast.permission {
+  border-color: rgba(220, 38, 38, 0.32);
+  background: var(--danger-soft, rgba(254, 226, 226, 0.92));
+}
+
+.ojachat-stt-toast-copy {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.ojachat-stt-toast-copy strong {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--ink, #111827);
+}
+
+.ojachat-stt-toast-copy span {
+  font-size: 0.69rem;
+  line-height: 1.42;
+  color: var(--ink-soft, #374151);
+}
+
+.ojachat-stt-toast-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.ojachat-stt-type-btn {
+  min-height: 28px;
+  padding: 0 9px;
+  border-radius: 8px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.14));
+  background: var(--panel, #ffffff);
+  color: var(--ink, #111827);
+  font-size: 0.66rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ojachat-stt-dismiss-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--muted, #6b7280);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}

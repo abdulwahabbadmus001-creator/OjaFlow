@@ -6,6 +6,7 @@ from .database import Base, engine
 from .migrations import ensure_ojatag_schema
 from .routers import (
     account,
+    admin,
     auth,
     chat,
     store,
@@ -46,6 +47,7 @@ app.add_middleware(
     allow_headers=[
         "Content-Type",
         "X-CSRF-Token",
+        "X-Admin-CSRF-Token",
     ],
 )
 
@@ -59,7 +61,7 @@ async def security_headers_middleware(
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = (
-        "camera=(), microphone=(), geolocation=()"
+        "camera=(), microphone=(self), geolocation=()"
     )
     response.headers["Content-Security-Policy"] = (
         "default-src 'none'; frame-ancestors 'none'"
@@ -98,6 +100,11 @@ app.include_router(
 
 app.include_router(
     support.router,
+    prefix="/api",
+)
+
+app.include_router(
+    admin.router,
     prefix="/api",
 )
 

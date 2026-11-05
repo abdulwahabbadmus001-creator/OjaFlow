@@ -3,7 +3,14 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Business, OtpChallenge, StoreState, SupportTicket, User
+from ..models import (
+    Business,
+    OtpChallenge,
+    StoreState,
+    SupportTicket,
+    User,
+    UserNotification,
+)
 from ..schemas import (
     ChangePasswordRequest,
     DeleteAccountRequest,
@@ -214,6 +221,9 @@ def delete_account(
 
     user_id = auth.user.id
 
+    db.execute(
+        delete(UserNotification).where(UserNotification.user_id == user_id)
+    )
     db.execute(delete(SupportTicket).where(SupportTicket.user_id == user_id))
     db.execute(delete(OtpChallenge).where(OtpChallenge.user_id == user_id))
     db.execute(delete(StoreState).where(StoreState.user_id == user_id))

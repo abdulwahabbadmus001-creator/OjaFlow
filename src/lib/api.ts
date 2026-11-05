@@ -1,7 +1,13 @@
 import type {
+  AdminAccount,
+  AdminOverviewStats,
+  AdminTicketRow,
+  AdminUserRow,
   BusinessProfile,
   LanguagePreference,
   StoreData,
+  SupportTicketItem,
+  UserNotificationItem,
   UserProfile
 } from '../types';
 
@@ -10,9 +16,12 @@ const API_BASE = (
 ).replace(/\/$/, '');
 
 const CSRF_KEY = 'ojaflow:csrf';
+const ADMIN_CSRF_KEY = 'ojaflow:admin:csrf';
 
 let csrfToken =
   sessionStorage.getItem(CSRF_KEY) || '';
+let adminCsrfToken =
+  sessionStorage.getItem(ADMIN_CSRF_KEY) || '';
 
 function rememberCsrf(value?: string) {
   if (!value) return;
@@ -21,9 +30,21 @@ function rememberCsrf(value?: string) {
   sessionStorage.setItem(CSRF_KEY, value);
 }
 
+function rememberAdminCsrf(value?: string) {
+  if (!value) return;
+
+  adminCsrfToken = value;
+  sessionStorage.setItem(ADMIN_CSRF_KEY, value);
+}
+
 export function clearCsrf() {
   csrfToken = '';
   sessionStorage.removeItem(CSRF_KEY);
+}
+
+export function clearAdminCsrf() {
+  adminCsrfToken = '';
+  sessionStorage.removeItem(ADMIN_CSRF_KEY);
 }
 
 async function request<T>(
@@ -414,6 +435,7 @@ export const api = {
     request<{
       ok: boolean;
       ticketId: string;
+      ticket?: SupportTicketItem;
     }>(
       '/support/ticket',
       {
@@ -425,5 +447,150 @@ export const api = {
         })
       },
       true
+    ),
+
+  mySupportTickets: () =>
+    request<{ tickets: SupportTicketItem[] }>('/support/tickets'),
+
+  myNotifications: () =>
+    request<{
+      unreadCount: number;
+      notifications: UserNotificationItem[];
+    }>('/support/notifications'),
+
+  markNotificationRead: (notificationId: string) =>
+    request<{ ok: boolean }>(
+      `/support/notifications/${encodeURIComponent(notificationId)}/read`,
+      {
+        method: 'POST',
+        body: '{}'
+      },
+      true
+    ),
+
+  markAllNotificationsRead: () =>
+    request<{ ok: boolean }>(
+      '/support/notifications/read-all',
+      {
+        method: 'POST',
+        body: '{}'
+      },
+      true
+    ),
+
+  adminLogin: async (email: string, password: string) => {
+    const res = await request<{
+      admin: AdminAccount;
+      csrfToken: string;
+    }>('/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+    rememberAdminCsrf(res.csrfToken);
+    return res;
+  },
+
+  adminSession: async () => {
+    const res = await request<{
+      admin: AdminAccount;
+      csrfToken: string;
+    }>('/admin/session');
+    rememberAdminCsrf(res.csrfToken);
+    return res;
+  },
+
+  adminLogout: async () => {
+    const res = await request<{ ok: boolean }>(
+      '/admin/logout',
+      {
+        method: 'POST',
+        headers: adminCsrfToken
+          ? { 'X-Admin-CSRF-Token': adminCsrfToken }
+          : undefined,
+        body: '{}'
+      }
+    );
+    clearAdminCsrf();
+    return res;
+  },
+
+  adminOverview: () =>
+    request<{
+      stats: AdminOverviewStats;
+      users: AdminUserRow[];
+      tickets: AdminTicketRow[];
+    }>('/admin/overview'),
+
+  adminListUsers: (q = '') =>
+    request<{ users: AdminUserRow[] }>(
+      `/admin/users?q=${encodeURIComponent(q)}`
+    ),
+
+  adminUnlockUser: (userId: string) =>
+    request<{ ok: boolean; user: AdminUserRow }>(
+      `/admin/users/${encodeURIComponent(userId)}/unlock`,
+      {
+        method: 'POST',
+        headers: adminCsrfToken
+          ? { 'X-Admin-CSRF-Token': adminCsrfToken }
+          : undefined,
+        body: '{}'
+      }
+    ),
+
+  adminResetUserPin: (userId: string, newPin: string) =>
+    request<{ ok: boolean; user: AdminUserRow }>(
+      `/admin/users/${encodeURIComponent(userId)}/reset-pin`,
+      {
+        method: 'POST',
+        headers: adminCsrfToken
+          ? { 'X-Admin-CSRF-Token': adminCsrfToken }
+          : undefined,
+        body: JSON.stringify({ newPin })
+      }
+    ),
+
+  adminUpdateUserStatus: (userId: string, isActive: boolean) =>
+    request<{ ok: boolean; user: AdminUserRow }>(
+      `/admin/users/${encodeURIComponent(userId)}/status`,
+      {
+        method: 'POST',
+        headers: adminCsrfToken
+          ? { 'X-Admin-CSRF-Token': adminCsrfToken }
+          : undefined,
+        body: JSON.stringify({ isActive })
+      }
+    ),
+
+  adminDeleteUser: (userId: string) =>
+    request<{ ok: boolean; deletedUserId: string }>(
+      `/admin/users/${encodeURIComponent(userId)}`,
+      {
+        method: 'DELETE',
+        headers: adminCsrfToken
+          ? { 'X-Admin-CSRF-Token': adminCsrfToken }
+          : undefined
+      }
+    ),
+
+  adminListTickets: (status = '') =>
+    request<{ tickets: AdminTicketRow[] }>(
+      `/admin/tickets?status=${encodeURIComponent(status)}`
+    ),
+
+  adminReplyTicket: (
+    ticketId: string,
+    reply: string,
+    status: 'open' | 'answered' | 'closed' = 'answered'
+  ) =>
+    request<{ ok: boolean; ticket: AdminTicketRow }>(
+      `/admin/tickets/${encodeURIComponent(ticketId)}/reply`,
+      {
+        method: 'POST',
+        headers: adminCsrfToken
+          ? { 'X-Admin-CSRF-Token': adminCsrfToken }
+          : undefined,
+        body: JSON.stringify({ reply, status })
+      }
     )
 };

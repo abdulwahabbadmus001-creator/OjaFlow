@@ -412,3 +412,39 @@ class SupportRequest(BaseModel):
     @classmethod
     def _clean_support(cls, v: str) -> str:
         return sanitize_text(v, 5000)
+
+
+class AdminLoginRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=160)
+    password: str = Field(min_length=4, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def _clean_email(cls, v: str) -> str:
+        return sanitize_text(v, 160).lower()
+
+
+class AdminResetUserPinRequest(BaseModel):
+    newPin: str = Field(min_length=4, max_length=4)
+
+    @field_validator("newPin")
+    @classmethod
+    def _clean_new_pin(cls, v: str) -> str:
+        return validate_pin_format(v)
+
+
+class AdminUpdateUserStatusRequest(BaseModel):
+    isActive: bool
+
+
+class AdminTicketReplyRequest(BaseModel):
+    reply: str = Field(min_length=2, max_length=5000)
+    status: Literal["open", "answered", "closed"] = "answered"
+
+    @field_validator("reply")
+    @classmethod
+    def _clean_reply(cls, v: str) -> str:
+        cleaned = sanitize_text(v, 5000)
+        if len(cleaned) < 2:
+            raise ValueError("Reply must be at least 2 characters.")
+        return cleaned

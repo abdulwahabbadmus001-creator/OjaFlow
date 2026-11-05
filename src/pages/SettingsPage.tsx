@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Bell,
@@ -28,6 +28,7 @@ import type {
   BusinessProfile,
   NotificationPreferences,
   StoreData,
+  SupportTicketItem,
   SyncStatus,
   ThemePreference,
   UserProfile
@@ -974,6 +975,14 @@ function HelpScreen({
   const { tr } = useI18n();
   const [status, setStatus] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
   const [sending, setSending] = useState(false);
+  const [tickets, setTickets] = useState<SupportTicketItem[]>([]);
+
+  useEffect(() => {
+    void api
+      .mySupportTickets()
+      .then(res => setTickets(res.tickets || []))
+      .catch(() => undefined);
+  }, []);
 
   async function submitTicket(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -983,15 +992,21 @@ function HelpScreen({
     setStatus(null);
 
     try {
-      const ticket = await api.supportTicket(
+      const result = await api.supportTicket(
         String(form.get('category') || 'General'),
         String(form.get('subject') || '').trim(),
         String(form.get('message') || '').trim()
       );
       formElement.reset();
+      if (result.ticket) {
+        setTickets(prev => [result.ticket!, ...prev]);
+      } else {
+        const refreshed = await api.mySupportTickets();
+        setTickets(refreshed.tickets || []);
+      }
       setStatus({
         kind: 'success',
-        message: `${tr('Your request was saved. Reference number:')} ${ticket.ticketId}`
+        message: `${tr('Your request was saved. Reference number:')} ${result.ticketId}`
       });
     } catch (e) {
       setStatus({
@@ -1018,7 +1033,7 @@ function HelpScreen({
       <div className="support-form-wrap">
         <h3>{tr('Send a support request')}</h3>
         <p className="muted">
-          {tr('Your request is saved with your account. The app will show a reference number after submission, but does not currently display replies or ticket progress.')}
+          {tr('Your request is sent directly to the OjaFlow Support team. When an administrator replies, you will receive an instant notification banner on your dashboard and see the reply below.')}
         </p>
         <form className="form-stack" onSubmit={event => void submitTicket(event)}>
           <label>
@@ -1051,6 +1066,42 @@ function HelpScreen({
           </button>
         </form>
       </div>
+
+      {tickets.length > 0 && (
+        <div className="support-tickets-history">
+          <h3>{tr('Your Support Requests & Replies')}</h3>
+          <div className="list">
+            {tickets.map(ticket => (
+              <div key={ticket.id} className="support-ticket-card">
+                <div className="support-ticket-head">
+                  <strong>{ticket.subject}</strong>
+                  <span
+                    className={`status-badge ${
+                      ticket.status === 'answered' ? 'green' : 'amber'
+                    }`}
+                  >
+                    {ticket.status === 'answered'
+                      ? tr('Answered')
+                      : ticket.status === 'closed'
+                        ? tr('Closed')
+                        : tr('Open')}
+                  </span>
+                </div>
+                <small className="muted">
+                  {ticket.category} • Ref: {ticket.id.slice(0, 8)}
+                </small>
+                <p className="support-ticket-msg">{ticket.message}</p>
+                {ticket.adminReply && (
+                  <div className="support-ticket-reply">
+                    <strong>{tr('OjaFlow Admin Response:')}</strong>
+                    <p>{ticket.adminReply}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </SimpleScreen>
   );
 }

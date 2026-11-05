@@ -19,12 +19,13 @@ from sqlalchemy.orm import Session
 
 from .config import get_settings
 from .database import get_db
-from .models import User
+from .models import AdminUser, User
 
 settings = get_settings()
 legacy_password_hasher = PasswordHash.recommended()
 
 COOKIE_NAME = "ojaflow_session"
+ADMIN_COOKIE_NAME = "ojaflow_admin_session"
 BCRYPT_SALT_ROUNDS = 12
 
 # Precomputed 12-round Bcrypt hash for constant-time verification when a user does not exist
@@ -545,5 +546,165 @@ def current_auth_csrf(
         raise HTTPException(
             status_code=403,
             detail="Security token mismatch. Refresh OjaFlow and try again.",
+        )
+    return auth
+
+
+def check_admin_lockout(admin: AdminUser, db: Session) -> None:
+    now_epoch = int(datetime.now(timezone.utc).timestamp())
+    if admin.locked_until_epoch and admin.locked_until_epoch > now_epoch:
+        retry_after = admin.locked_until_epoch - now_epoch
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Admin account temporarily locked due to failed login attempts. Try again in 15 minutes.",
+            headers={"Retry-After": str(retry_after)},
+        )
+    if admin.locked_until_epoch and admin.locked_until_epoch <= now_epoch:
+        admin.locked_until_epoch = None
+        admin.failed_login_attempts = 0
+        db.commit()
+
+
+def record_admin_login_failure(admin: AdminUser, db: Session) -> None:
+    now_epoch = int(datetime.now(timezone.utc).timestamp())
+    admin.failed_login_attempts = (admin.failed_login_attempts or 0) + 1
+    if admin.failed_login_attempts >= MAX_PIN_ATTEMPTS:
+        admin.locked_until_epoch = now_epoch + LOCKOUT_SECONDS
+    db.commit()
+
+
+def clear_admin_login_failures(admin: AdminUser, db: Session) -> None:
+    if admin.failed_login_attempts or admin.locked_until_epoch:
+        admin.failed_login_attempts = 0
+        admin.locked_until_epoch = None
+        db.commit()
+
+
+def create_admin_session_token(admin: AdminUser) -> tuple[str, str]:
+    now = datetime.now(timezone.utc)
+    csrf = secrets.token_urlsafe(24)
+    jti = secrets.token_urlsafe(16)
+    payload = {
+        "sub": admin.id,
+        "email": admin.email,
+        "role": "admin",
+        "csrf": csrf,
+        "jti": jti,
+        "ver": (admin.password_hash or "")[-12:],
+        "iss": "ojaflow-admin-api",
+        "typ": "admin_session",
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(hours=12)).timestamp()),
+    }
+    token = jwt.encode(payload, _jwt_key(), algorithm="HS256")
+    return token, csrf
+
+
+def set_admin_session_cookie(response: Response, token: str) -> None:
+    is_secure = settings.cookie_secure or settings.app_env.lower() == "production"
+    response.set_cookie(
+        key=ADMIN_COOKIE_NAME,
+        value=token,
+        max_age=12 * 3600,
+        httponly=True,
+        secure=is_secure,
+        samesite=settings.cookie_samesite,
+        path="/",
+    )
+
+
+def clear_admin_session_cookie(response: Response) -> None:
+    is_secure = settings.cookie_secure or settings.app_env.lower() == "production"
+    response.delete_cookie(
+        ADMIN_COOKIE_NAME,
+        path="/",
+        httponly=True,
+        secure=is_secure,
+        samesite=settings.cookie_samesite,
+    )
+
+
+def decode_admin_session(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, _jwt_key(), algorithms=["HS256"])
+        if payload.get("typ") != "admin_session":
+            raise ValueError("wrong token type")
+        if payload.get("iss") != "ojaflow-admin-api":
+            raise ValueError("wrong token issuer")
+        if payload.get("role") != "admin":
+            raise ValueError("insufficient role")
+        configured_admin_email = settings.admin_email.strip().lower()
+        token_email = str(payload.get("email") or "").strip().lower()
+        if not configured_admin_email or not timing_safe_equal(
+            token_email, configured_admin_email
+        ):
+            raise ValueError("admin email mismatch")
+        if _is_token_revoked(payload.get("jti")):
+            raise ValueError("admin session token revoked")
+        return payload
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Admin session expired or unauthorized. Please sign in to the Admin Console.",
+        ) from exc
+
+
+@dataclass
+class AdminAuthContext:
+    admin: AdminUser
+    csrf: str
+    token: str = ""
+
+
+def current_admin(
+    request: Request, db: Session = Depends(get_db)
+) -> AdminAuthContext:
+    token = request.cookies.get(ADMIN_COOKIE_NAME)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Admin authentication required.",
+        )
+    payload = decode_admin_session(token)
+    admin = db.get(AdminUser, payload.get("sub"))
+    configured_admin_email = settings.admin_email.strip().lower()
+    if (
+        not admin
+        or not admin.is_active
+        or admin.role != "admin"
+        or not configured_admin_email
+        or not timing_safe_equal(
+            admin.email.strip().lower(), configured_admin_email
+        )
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: valid administrator privileges required.",
+        )
+    token_ver = str(payload.get("ver") or "")
+    if token_ver and not timing_safe_equal(
+        token_ver, (admin.password_hash or "")[-12:]
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Admin credentials changed. Please sign in again.",
+        )
+    return AdminAuthContext(
+        admin=admin, csrf=str(payload.get("csrf", "")), token=token
+    )
+
+
+def current_admin_csrf(
+    request: Request, auth: AdminAuthContext = Depends(current_admin)
+) -> AdminAuthContext:
+    supplied = (
+        request.headers.get("X-Admin-CSRF-Token")
+        or request.headers.get("X-CSRF-Token")
+        or ""
+    )
+    if not supplied or not timing_safe_equal(supplied, auth.csrf):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin CSRF security token mismatch. Refresh and try again.",
         )
     return auth

@@ -305,6 +305,122 @@ class SupportTicket(Base):
         default="open",
     )
 
+    admin_reply: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    replied_by: Mapped[str | None] = mapped_column(
+        String(120),
+        nullable=True,
+    )
+
+    replied_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=now_utc,
+    )
+
+
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=uuid_str,
+    )
+
+    email: Mapped[str] = mapped_column(
+        String(160),
+        unique=True,
+        index=True,
+    )
+
+    role: Mapped[str] = mapped_column(
+        String(24),
+        default="admin",
+    )
+
+    password_hash: Mapped[str] = mapped_column(Text)
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+    )
+
+    failed_login_attempts: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+    )
+
+    locked_until_epoch: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=now_utc,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=now_utc,
+        onupdate=now_utc,
+    )
+
+
+class UserNotification(Base):
+    __tablename__ = "user_notifications"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=uuid_str,
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        index=True,
+    )
+
+    ticket_id: Mapped[str | None] = mapped_column(
+        ForeignKey(
+            "support_tickets.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    kind: Mapped[str] = mapped_column(
+        String(40),
+        default="support_reply",
+    )
+
+    title: Mapped[str] = mapped_column(String(180))
+
+    message: Mapped[str] = mapped_column(Text)
+
+    is_read: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        index=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=now_utc,
