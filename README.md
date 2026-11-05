@@ -1,5 +1,5 @@
 ﻿<div align="center">
-  <img src="https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY_NAME/main/public/logo.png" alt="OjaFlow Logo" width="120" height="120" />
+  <img src="https://raw.githubusercontent.com/abdulwahabbadmus001-creator/OjaFlow/main/public/logo.png" alt="OjaFlow Logo" width="120" height="120" />
   <h1>OjaFlow</h1>
   <p><strong>The Ultimate PWA Business Management & Financial Companion for Market Traders & SMEs</strong></p>
   
