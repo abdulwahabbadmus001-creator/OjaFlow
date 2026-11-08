@@ -25,6 +25,39 @@ function key(uid: string, name: string) {
   return `ojaflow:${uid}:${name}`;
 }
 
+const ACTIVE_UID_KEY = 'ojaflow:active_uid';
+
+export function scheduleDeferredTask(
+  callback: () => void,
+  delayMs = 120
+): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+
+  let idleId: number | null = null;
+  const win = window as Window & {
+    requestIdleCallback?: (
+      cb: () => void,
+      opts?: { timeout: number }
+    ) => number;
+    cancelIdleCallback?: (id: number) => void;
+  };
+
+  const timerId = window.setTimeout(() => {
+    if (typeof win.requestIdleCallback === 'function') {
+      idleId = win.requestIdleCallback(callback, { timeout: 1500 });
+    } else {
+      callback();
+    }
+  }, delayMs);
+
+  return () => {
+    window.clearTimeout(timerId);
+    if (idleId !== null && typeof win.cancelIdleCallback === 'function') {
+      win.cancelIdleCallback(idleId);
+    }
+  };
+}
+
 export function loadStore(uid: string): StoreData {
   const raw = localStorage.getItem(key(uid, 'store'));
 
@@ -113,6 +146,39 @@ export function saveProfile(
     key(profile.uid, 'profile'),
     JSON.stringify(profile)
   );
+  localStorage.setItem(ACTIVE_UID_KEY, profile.uid);
+}
+
+export function loadCachedSession(): UserProfile | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const activeUid = localStorage.getItem(ACTIVE_UID_KEY);
+    if (activeUid) {
+      const activeProfile = loadProfile(activeUid);
+      if (activeProfile?.uid) {
+        return activeProfile;
+      }
+    }
+
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('ojaflow:') && k.endsWith(':profile')) {
+        const uid = k.slice('ojaflow:'.length, -':profile'.length);
+        if (uid) {
+          const found = loadProfile(uid);
+          if (found?.uid) {
+            localStorage.setItem(ACTIVE_UID_KEY, found.uid);
+            return found;
+          }
+        }
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 export function loadNotifications(
@@ -266,6 +332,10 @@ export function clearUserCache(
   uid: string
 ) {
   const prefix = `ojaflow:${uid}:`;
+
+  if (localStorage.getItem(ACTIVE_UID_KEY) === uid) {
+    localStorage.removeItem(ACTIVE_UID_KEY);
+  }
 
   for (
     let i = localStorage.length - 1;

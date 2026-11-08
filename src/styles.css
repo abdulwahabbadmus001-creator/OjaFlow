@@ -969,3 +969,30 @@ code,
   color: var(--muted);
   margin-top: 3px;
 }
+
+/* Lightweight Suspense route fallback spinner */
+.route-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 180px;
+  padding: 28px 18px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.route-spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2.5px solid var(--line);
+  border-top-color: var(--of-gold, var(--green-700));
+  animation: spin 0.7s linear infinite;
+}
+
+.route-fallback-label {
+  letter-spacing: 0.01em;
+}
+

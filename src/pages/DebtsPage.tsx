@@ -4,7 +4,6 @@ import type { BusinessProfile, Debt, StoreData } from '../types';
 import { money, todayISO, uid } from '../lib/format';
 import Modal from '../components/Modal';
 import { useI18n } from '../lib/i18n';
-import { shareOrDownloadDebtReminderImage } from '../lib/receiptImage';
 
 export default function DebtsPage({
   data,
@@ -80,9 +79,12 @@ export default function DebtsPage({
                     <button
                       type="button"
                       className="secondary-btn full"
-                      onClick={() =>
-                        void shareOrDownloadDebtReminderImage(business, debt)
-                      }
+                      onClick={() => {
+                        void import('../lib/receiptImage').then(
+                          ({ shareOrDownloadDebtReminderImage }) =>
+                            shareOrDownloadDebtReminderImage(business, debt)
+                        );
+                      }}
                     >
                       <Share2 size={15} /> {tr('Share Reminder Card')}
                     </button>

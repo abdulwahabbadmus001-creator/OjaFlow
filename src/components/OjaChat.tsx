@@ -1,12 +1,13 @@
 import {
+  lazy,
+  Suspense,
   useEffect,
   useMemo,
   useRef,
   useState
 } from 'react';
 
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+const OjaMarkdown = lazy(() => import('./OjaMarkdown'));
 
 import {
   Bot,
@@ -100,59 +101,6 @@ function makeMessage(
     pendingAction: pendingAction || null,
     actionSaved: false
   };
-}
-
-function normalizeHref(
-  href?: string
-): string {
-  if (!href) {
-    return '#';
-  }
-
-  const value = href.trim();
-
-  if (!value) {
-    return '#';
-  }
-
-  if (
-    value.startsWith('https://') ||
-    value.startsWith('http://') ||
-    value.startsWith('mailto:') ||
-    value.startsWith('tel:') ||
-    value.startsWith('#')
-  ) {
-    return value;
-  }
-
-  if (
-    value.startsWith('//')
-  ) {
-    return `https:${value}`;
-  }
-
-  if (
-    value.startsWith('www.')
-  ) {
-    return `https://${value}`;
-  }
-
-  const domainPattern =
-    /^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+([/?#].*)?$/;
-
-  if (
-    domainPattern.test(value)
-  ) {
-    return `https://${value}`;
-  }
-
-  if (
-    value.startsWith('/')
-  ) {
-    return value;
-  }
-
-  return '#';
 }
 
 function createConversationTitle(
@@ -1507,52 +1455,13 @@ export default function OjaChat({
                     {message.role ===
                     'assistant' ? (
                       <div className="message-text ojachat-markdown">
-                        <ReactMarkdown
-                          remarkPlugins={[
-                            remarkGfm
-                          ]}
-
-                          components={{
-                            a: ({
-                              children,
-                              href,
-                              ...props
-                            }) => {
-                              const safeHref =
-                                normalizeHref(
-                                  href
-                                );
-
-                              return (
-                                <a
-                                  {...props}
-
-                                  href={
-                                    safeHref
-                                  }
-
-                                  target="_blank"
-
-                                  rel="noopener noreferrer"
-
-                                  className="ojachat-link"
-
-                                  title={
-                                    safeHref
-                                  }
-                                >
-                                  {
-                                    children
-                                  }
-                                </a>
-                              );
-                            }
-                          }}
-                        >
-                          {
-                            message.text
+                        <Suspense
+                          fallback={
+                            <span className="message-text">{message.text}</span>
                           }
-                        </ReactMarkdown>
+                        >
+                          <OjaMarkdown>{message.text}</OjaMarkdown>
+                        </Suspense>
 
                         {message.pendingAction && (
                           <div className="ojachat-action-card">

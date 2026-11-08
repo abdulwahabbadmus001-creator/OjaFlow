@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Download, Smartphone, X } from 'lucide-react';
-import { isStandalonePwaEnvironment } from '../lib/useSpeechToText';
 import { useI18n } from '../lib/i18n';
+
+function isStandalonePwaEnvironment(): boolean {
+  if (typeof window === 'undefined') return false;
+  const standaloneDisplay =
+    window.matchMedia?.('(display-mode: standalone)')?.matches ||
+    window.matchMedia?.('(display-mode: fullscreen)')?.matches ||
+    window.matchMedia?.('(display-mode: minimal-ui)')?.matches;
+  const iosStandalone = Boolean(
+    (window.navigator as Navigator & { standalone?: boolean }).standalone
+  );
+  return Boolean(standaloneDisplay || iosStandalone);
+}
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;

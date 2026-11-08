@@ -1,24 +1,36 @@
-import BrandLogo from './components/BrandLogo';
-import { useEffect, useMemo, useState } from 'react';
-import type { AppSection, BusinessProfile, ThemePreference, UserProfile } from './types';
-import AuthPage from './pages/AuthPage';
-import AdminPage from './pages/AdminPage';
-import BusinessSetup from './pages/BusinessSetup';
-import Dashboard from './pages/Dashboard';
-import SalesPage from './pages/SalesPage';
-import InventoryPage from './pages/InventoryPage';
-import DebtsPage from './pages/DebtsPage';
-import SettingsPage from './pages/SettingsPage';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import type {
+  AppSection,
+  BusinessProfile,
+  ThemePreference,
+  UserProfile
+} from './types';
 import AppShell from './components/AppShell';
-import QuickAction from './components/QuickAction';
-import OjaChat from './components/OjaChat';
-import { clearAllUserCaches, clearUserCache, saveBusiness, saveLastSync, saveProfile, saveStore } from './lib/storage';
+import CookieBanner, { COOKIE_CONSENT_KEY } from './components/CookieBanner';
+import RouteFallback, { AppShellFallback } from './components/RouteFallback';
+import {
+  AdminRoute,
+  AppRouter,
+  AuthRoute,
+  BusinessSetupRoute,
+  LegalPagesModal,
+  OjaChatDrawer,
+  QuickActionSheet,
+  resolveInitialSection
+} from './router';
+import {
+  clearAllUserCaches,
+  clearUserCache,
+  loadCachedSession,
+  saveBusiness,
+  saveLastSync,
+  saveProfile,
+  saveStore,
+  scheduleDeferredTask
+} from './lib/storage';
 import { api, clearCsrf, type RemoteStoreSnapshot } from './lib/api';
 import { useStore } from './lib/useStore';
 import { LanguageProvider } from './lib/i18n';
-import { t } from './lib/language';
-import CookieBanner, { COOKIE_CONSENT_KEY } from './components/CookieBanner';
-import LegalPages from './components/LegalPages';
 
 const THEME_KEY = 'ojaflow:theme';
 
@@ -43,16 +55,24 @@ function isSecretAdminRoute(): boolean {
 
 function resolveTheme(preference: ThemePreference) {
   if (preference !== 'system') return preference;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
 }
 
 export default function App() {
-  const [session, setSession] = useState<UserProfile | null>(null);
-  const [checking, setChecking] = useState(true);
-  const [section, setSection] = useState<AppSection>('home');
+  // Synchronously hydrate cached session so returning users render the UI shell in 0ms
+  const [session, setSession] = useState<UserProfile | null>(() =>
+    loadCachedSession()
+  );
+  const [section, setSection] = useState<AppSection>(() =>
+    resolveInitialSection()
+  );
   const [quick, setQuick] = useState(false);
   const [chat, setChat] = useState(false);
-  const [theme, setTheme] = useState<ThemePreference>(() => (localStorage.getItem(THEME_KEY) as ThemePreference) || 'system');
+  const [theme, setTheme] = useState<ThemePreference>(
+    () => (localStorage.getItem(THEME_KEY) as ThemePreference) || 'system'
+  );
   const [cookieConsentAccepted, setCookieConsentAccepted] = useState(
     () => localStorage.getItem(COOKIE_CONSENT_KEY) === 'true'
   );
@@ -60,7 +80,12 @@ export default function App() {
 
   useEffect(() => {
     const syncRoute = () => {
-      setAdminView(isSecretAdminRoute());
+      const isAdmin = isSecretAdminRoute();
+      setAdminView(isAdmin);
+      if (!isAdmin) {
+        const nextSection = resolveInitialSection();
+        setSection(prev => (window.location.hash ? nextSection : prev));
+      }
     };
     window.addEventListener('hashchange', syncRoute);
     window.addEventListener('popstate', syncRoute);
@@ -72,7 +97,9 @@ export default function App() {
 
   const uid = session?.uid || '';
   const store = useStore(uid);
-  const [legalPage, setLegalPage] = useState<'terms' | 'privacy' | 'faq' | null>(null);
+  const [legalPage, setLegalPage] = useState<
+    'terms' | 'privacy' | 'faq' | null
+  >(null);
 
   useEffect(() => {
     const apply = () => {
@@ -85,28 +112,45 @@ export default function App() {
     return () => media.removeEventListener('change', apply);
   }, [theme]);
 
+  // Defer session verification to the background so it never blocks first paint
   useEffect(() => {
-    void api.session()
-      .then(result => activate(result.profile, result.business, result.store))
-      .catch(() => {
-        clearAllUserCaches();
-        clearCsrf();
-        setSession(null);
-      })
-      .finally(() => setChecking(false));
+    let active = true;
+    const cancelDeferred = scheduleDeferredTask(() => {
+      if (!navigator.onLine) return;
+      void api
+        .session()
+        .then(result => {
+          if (!active) return;
+          activate(result.profile, result.business, result.store, false);
+        })
+        .catch(() => {
+          if (!active || !navigator.onLine) return;
+          clearAllUserCaches();
+          clearCsrf();
+          setSession(null);
+        });
+    }, 80);
+
+    return () => {
+      active = false;
+      cancelDeferred();
+    };
   }, []);
 
   function activate(
     profile: UserProfile,
     business?: BusinessProfile | null,
-    remoteStore?: RemoteStoreSnapshot
+    remoteStore?: RemoteStoreSnapshot,
+    resetSection = true
   ) {
     if (session && session.uid !== profile.uid) {
       clearUserCache(session.uid);
     }
     saveProfile(profile);
+    store.actions.setProfile(profile);
     if (business) {
       saveBusiness(profile.uid, business);
+      store.actions.setBusiness(business);
     }
     if (remoteStore?.data) {
       saveStore(profile.uid, remoteStore.data);
@@ -115,7 +159,9 @@ export default function App() {
       }
     }
     setSession(profile);
-    setSection('home');
+    if (resetSection) {
+      setSection('home');
+    }
   }
 
   async function logout() {
@@ -145,7 +191,7 @@ export default function App() {
   }
 
   const currentBusiness = store.business;
-  const currentProfile = store.profile;
+  const currentProfile = store.profile || session;
   const shell = useMemo(() => {
     if (!session || !currentProfile || !currentBusiness) return null;
     return { profile: currentProfile, business: currentBusiness };
@@ -153,33 +199,28 @@ export default function App() {
 
   if (adminView) {
     return (
-      <AdminPage
-        onExitAdmin={() => {
-          window.history.replaceState(null, '', '/');
-          setAdminView(false);
-        }}
-      />
-    );
-  }
-
-  if (checking) {
-    return (
-      <div className="splash">
-        <BrandLogo />
-        <small>
-          Preparing your business…
-        </small>
-      </div>
+      <Suspense fallback={<AppShellFallback subtitle="Admin Console" />}>
+        <AdminRoute
+          onExitAdmin={() => {
+            window.history.replaceState(null, '', '/');
+            setAdminView(false);
+          }}
+        />
+      </Suspense>
     );
   }
 
   if (!session) {
     return (
       <>
-        <AuthPage
-          onAuthenticated={activate}
-          cookieConsentAccepted={cookieConsentAccepted}
-        />
+        <Suspense fallback={<AppShellFallback />}>
+          <AuthRoute
+            onAuthenticated={(profile, business, remoteStore) =>
+              activate(profile, business, remoteStore, true)
+            }
+            cookieConsentAccepted={cookieConsentAccepted}
+          />
+        </Suspense>
         {!cookieConsentAccepted && (
           <CookieBanner
             onAccept={() => {
@@ -189,50 +230,51 @@ export default function App() {
             onOpenPrivacy={() => setLegalPage('privacy')}
           />
         )}
-        {legalPage && <LegalPages type={legalPage} onClose={() => setLegalPage(null)} />}
+        {legalPage && (
+          <Suspense fallback={null}>
+            <LegalPagesModal
+              type={legalPage}
+              onClose={() => setLegalPage(null)}
+            />
+          </Suspense>
+        )}
       </>
-    );
-  }
-
-  if (!store.profile) {
-    return (
-      <div className="splash">
-        <strong>{t(session.preferredLanguage, 'Loading your profile…')}</strong>
-      </div>
     );
   }
 
   if (!store.business || !session.businessProfileCompleted) {
     return (
       <LanguageProvider language={session.preferredLanguage}>
-        <BusinessSetup
-          phone={session.phoneNumber}
-          onComplete={business => {
-            void (async () => {
-              const profile = { ...session, businessProfileCompleted: true, onboardingCompleted: true };
-              try {
-                const remote = await api.saveProfile(profile, business);
-                store.actions.setBusiness(remote.business || business);
-                store.actions.setProfile(remote.profile);
-                activate(remote.profile, remote.business || business);
-              } catch {
-                store.actions.setBusiness(business);
-                store.actions.setProfile(profile);
-                activate(profile, business);
-              }
-            })();
-          }}
-        />
+        <Suspense fallback={<AppShellFallback subtitle="Business Setup" />}>
+          <BusinessSetupRoute
+            phone={session.phoneNumber}
+            onComplete={business => {
+              void (async () => {
+                const profile = {
+                  ...session,
+                  businessProfileCompleted: true,
+                  onboardingCompleted: true
+                };
+                try {
+                  const remote = await api.saveProfile(profile, business);
+                  store.actions.setBusiness(remote.business || business);
+                  store.actions.setProfile(remote.profile);
+                  activate(remote.profile, remote.business || business, undefined, true);
+                } catch {
+                  store.actions.setBusiness(business);
+                  store.actions.setProfile(profile);
+                  activate(profile, business, undefined, true);
+                }
+              })();
+            }}
+          />
+        </Suspense>
       </LanguageProvider>
     );
   }
 
   if (!shell) {
-    return (
-      <div className="splash">
-        <strong>{t(session.preferredLanguage, 'Preparing workspace…')}</strong>
-      </div>
-    );
+    return <AppShellFallback />;
   }
   const { profile, business } = shell;
 
@@ -250,40 +292,57 @@ export default function App() {
         onQuick={() => setQuick(true)}
         onChat={() => setChat(true)}
       >
-        {section === 'home' && (
-          <Dashboard
-            profile={profile}
-            business={business}
-            data={store.data}
-            onOpenSales={() => {
-              sessionStorage.setItem('ojaflow:sales-tab', 'sales');
-              setSection('sales');
-            }}
-            onOpenInventory={() => setSection('inventory')}
-            onOpenDebts={() => setSection('debts')}
-            onOpenCustomers={() => {
-              sessionStorage.setItem('ojaflow:sales-tab', 'customers');
-              setSection('sales');
-            }}
-          />
+        <AppRouter
+          section={section}
+          setSection={setSection}
+          profile={profile}
+          business={business}
+          data={store.data}
+          actions={store.actions}
+          theme={theme}
+          setTheme={setTheme}
+          syncStatus={store.syncStatus}
+          lastSync={store.lastSync}
+          onProfileChange={next => {
+            store.actions.setProfile(next);
+            setSession(next);
+          }}
+          onLogout={logout}
+          onDelete={deleted}
+          setLegalPage={setLegalPage}
+        />
+
+        {quick && (
+          <Suspense fallback={null}>
+            <QuickActionSheet
+              onClose={() => setQuick(false)}
+              onNavigate={setSection}
+            />
+          </Suspense>
         )}
-        {section === 'sales' && <SalesPage data={store.data} business={business} preferredLanguage={profile.preferredLanguage} addSale={store.actions.addSale} addExpense={store.actions.addExpense} addCustomer={store.actions.addCustomer} updateCustomer={store.actions.updateCustomer} addInvoice={store.actions.addInvoice} updateInvoice={store.actions.updateInvoice} />}
-        {section === 'inventory' && <InventoryPage data={store.data} addProduct={store.actions.addProduct} />}
-        {section === 'debts' && <DebtsPage data={store.data} business={business} addDebt={store.actions.addDebt} updateDebtPaid={store.actions.updateDebtPaid} />}
-        {section === 'more' && <SettingsPage uid={profile.uid} profile={profile} business={business} data={store.data} onProfile={next => { store.actions.setProfile(next); setSession(next); }} onBusiness={store.actions.setBusiness} onLogout={logout} onDelete={deleted} theme={theme} setTheme={setTheme} syncStatus={store.syncStatus} lastSync={store.lastSync} onSyncNow={store.actions.syncNow} setLegalPage={setLegalPage} />}
-        {quick && <QuickAction onClose={() => setQuick(false)} onNavigate={setSection} />}
+
         {chat && (
-          <OjaChat
-            data={store.data}
-            business={business}
-            onClose={() => setChat(false)}
-            onAddSale={store.actions.addSale}
-            onAddExpense={store.actions.addExpense}
-            onAddDebt={store.actions.addDebt}
-          />
+          <Suspense fallback={<RouteFallback label="Opening OjaChat…" />}>
+            <OjaChatDrawer
+              data={store.data}
+              business={business}
+              onClose={() => setChat(false)}
+              onAddSale={store.actions.addSale}
+              onAddExpense={store.actions.addExpense}
+              onAddDebt={store.actions.addDebt}
+            />
+          </Suspense>
         )}
       </AppShell>
-      {legalPage && <LegalPages type={legalPage} onClose={() => setLegalPage(null)} />}
+
+      {legalPage && (
+        <Suspense fallback={null}>
+          <LegalPagesModal
+            type={legalPage}
+            onClose={() => setLegalPage(null)}
+          />
+        </Suspense>
+      )}
     </LanguageProvider>
   );
 }

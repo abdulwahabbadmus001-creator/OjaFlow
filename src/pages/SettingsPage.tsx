@@ -36,7 +36,6 @@ import type {
 import { maskPhone } from '../lib/phone';
 import { copyText } from '../lib/clipboard';
 import { api } from '../lib/api';
-import { exportAllAsCsv, exportAllAsJson, exportSummary } from '../lib/exportData';
 import { loadNotifications, saveNotifications } from '../lib/storage';
 import { languageLabel, languageOptions } from '../lib/language';
 import { useI18n } from '../lib/i18n';
@@ -45,7 +44,7 @@ import {
   LOCALIZED_ANSWER_PLACEHOLDERS,
   LOCALIZED_CUSTOM_QUESTION_PLACEHOLDERS,
   LOCALIZED_TRADER_SECURITY_QUESTIONS
-} from './AuthPage';
+} from '../lib/securityQuestions';
 
 const PIN_REGEX = /^\d{4}$/;
 
@@ -947,15 +946,36 @@ function ExportScreen({ profile, business, data, onBack }: {
   return (
     <SimpleScreen title={tr('Export My Data')} subtitle={tr('Keep a portable copy of your business records.')} onBack={onBack}>
       <div className="export-grid">
-        <button className="export-card" onClick={() => exportAllAsJson(profile, business, data)}>
+        <button
+          className="export-card"
+          onClick={() => {
+            void import('../lib/exportData').then(({ exportAllAsJson }) =>
+              exportAllAsJson(profile, business, data)
+            );
+          }}
+        >
           <Download />
           <div><strong>{tr('Full data backup')}</strong><span>{tr('Keep a complete copy of your business records.')}</span></div>
         </button>
-        <button className="export-card" onClick={() => exportAllAsCsv(data)}>
+        <button
+          className="export-card"
+          onClick={() => {
+            void import('../lib/exportData').then(({ exportAllAsCsv }) =>
+              exportAllAsCsv(data)
+            );
+          }}
+        >
           <FileText />
           <div><strong>{tr('Spreadsheets')}</strong><span>{tr('Download your sales, expenses, stock, debts and customer records in spreadsheet files.')}</span></div>
         </button>
-        <button className="export-card" onClick={() => exportSummary(business, data, profile.preferredLanguage)}>
+        <button
+          className="export-card"
+          onClick={() => {
+            void import('../lib/exportData').then(({ exportSummary }) =>
+              exportSummary(business, data, profile.preferredLanguage)
+            );
+          }}
+        >
           <FileText />
           <div><strong>{tr('Business summary')}</strong><span>{tr('A simple text snapshot you can keep or share.')}</span></div>
         </button>

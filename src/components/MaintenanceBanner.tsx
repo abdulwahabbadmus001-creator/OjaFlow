@@ -3,6 +3,7 @@ import { CircleAlert, Megaphone, X } from 'lucide-react';
 import { productAnnouncement } from '../config/announcement';
 import { api } from '../lib/api';
 import { useI18n } from '../lib/i18n';
+import { scheduleDeferredTask } from '../lib/storage';
 import type { SystemBroadcastItem } from '../types';
 
 function withinWindow(startAt: string, endAt: string) {
@@ -31,12 +32,15 @@ export default function MaintenanceBanner() {
         /* ignore offline errors */
       }
     }
-    void checkBroadcast();
+    const cancelInitial = scheduleDeferredTask(() => {
+      void checkBroadcast();
+    }, 900);
     const timer = window.setInterval(() => {
       void checkBroadcast();
     }, 20000);
     return () => {
       active = false;
+      cancelInitial();
       window.clearInterval(timer);
     };
   }, []);

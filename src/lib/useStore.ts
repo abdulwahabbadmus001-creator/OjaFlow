@@ -23,6 +23,7 @@ import {
   saveLastSync,
   saveProfile,
   saveStore,
+  scheduleDeferredTask,
   type QueuedOfflineMutation
 } from './storage';
 import { api } from './api';
@@ -166,43 +167,61 @@ export function useStore(uid: string) {
     dirtyRef.current = existingQueue.length > 0;
     loadedRef.current = false;
 
-    void api
-      .loadStore()
-      .then(async remote => {
-        versionRef.current = remote.version || 0;
-        const remoteData = normalizeStore(remote.data);
-
-        if (dirtyRef.current || pendingCountRef.current > 0) {
-          // Trader added records offline before initial fetch completed; merge and flush
-          const flushedCount = pendingCountRef.current;
-          const merged = mergeStores(dataRef.current, remoteData);
-          setData(merged);
-          dataRef.current = merged;
-          saveStore(uid, merged);
-          const saved = await api.saveStore(merged, versionRef.current);
-          versionRef.current = saved.version;
-          dirtyRef.current = false;
-          if (flushedCount > 0) {
-            announceOfflineFlush(flushedCount);
-          }
-        } else if (remote.version > 0 || hasAnyRecords(remoteData)) {
-          setData(remoteData);
-          dataRef.current = remoteData;
-          saveStore(uid, remoteData);
-        } else if (hasAnyRecords(local)) {
-          const saved = await api.saveStore(local, 0);
-          versionRef.current = saved.version;
-        }
-
-        const now = remote.updatedAt || new Date().toISOString();
-        setLastSync(now);
-        saveLastSync(uid, now);
-        setSyncStatus('synced');
-      })
-      .catch(() => setSyncStatus(navigator.onLine ? 'error' : 'offline'))
-      .finally(() => {
+    let cancelled = false;
+    const cancelDeferredLoad = scheduleDeferredTask(() => {
+      if (cancelled || !navigator.onLine) {
         loadedRef.current = true;
-      });
+        return;
+      }
+
+      void api
+        .loadStore()
+        .then(async remote => {
+          if (cancelled) return;
+          versionRef.current = remote.version || 0;
+          const remoteData = normalizeStore(remote.data);
+
+          if (dirtyRef.current || pendingCountRef.current > 0) {
+            // Trader added records offline before initial fetch completed; merge and flush
+            const flushedCount = pendingCountRef.current;
+            const merged = mergeStores(dataRef.current, remoteData);
+            setData(merged);
+            dataRef.current = merged;
+            saveStore(uid, merged);
+            const saved = await api.saveStore(merged, versionRef.current);
+            versionRef.current = saved.version;
+            dirtyRef.current = false;
+            if (flushedCount > 0) {
+              announceOfflineFlush(flushedCount);
+            }
+          } else if (remote.version > 0 || hasAnyRecords(remoteData)) {
+            setData(remoteData);
+            dataRef.current = remoteData;
+            saveStore(uid, remoteData);
+          } else if (hasAnyRecords(local)) {
+            const saved = await api.saveStore(local, 0);
+            versionRef.current = saved.version;
+          }
+
+          const now = remote.updatedAt || new Date().toISOString();
+          setLastSync(now);
+          saveLastSync(uid, now);
+          setSyncStatus('synced');
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSyncStatus(navigator.onLine ? 'error' : 'offline');
+          }
+        })
+        .finally(() => {
+          loadedRef.current = true;
+        });
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      cancelDeferredLoad();
+    };
   }, [announceOfflineFlush, uid]);
 
   useEffect(() => {

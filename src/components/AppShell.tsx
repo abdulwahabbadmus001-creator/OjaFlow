@@ -25,6 +25,8 @@ import type {
 import type { ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useI18n } from '../lib/i18n';
+import { scheduleDeferredTask } from '../lib/storage';
+import { preloadRoute } from '../router';
 import MaintenanceBanner from './MaintenanceBanner';
 import PwaInstallBanner from './PwaInstallBanner';
 import BrandLogo from './BrandLogo';
@@ -114,13 +116,16 @@ export default function AppShell({
       }
     }
 
-    void fetchNotifications();
+    const cancelInitial = scheduleDeferredTask(() => {
+      void fetchNotifications();
+    }, 800);
     const timer = window.setInterval(() => {
       void fetchNotifications();
     }, 10000);
 
     return () => {
       active = false;
+      cancelInitial();
       window.clearInterval(timer);
     };
   }, [profile.uid]);
@@ -189,6 +194,8 @@ export default function AppShell({
                   className={
                     section === item.id ? 'top-nav-item active' : 'top-nav-item'
                   }
+                  onMouseEnter={() => preloadRoute(item.id)}
+                  onFocus={() => preloadRoute(item.id)}
                   onClick={() => navigate(item.id)}
                 >
                   <Icon size={17} />
@@ -257,6 +264,8 @@ export default function AppShell({
                       ? 'mobile-nav-item active'
                       : 'mobile-nav-item'
                   }
+                  onMouseEnter={() => preloadRoute(item.id)}
+                  onFocus={() => preloadRoute(item.id)}
                   onClick={() => navigate(item.id)}
                 >
                   <Icon size={19} />
@@ -379,6 +388,8 @@ export default function AppShell({
         <div className="floating-actions">
           <button
             className="chat-fab"
+            onMouseEnter={() => preloadRoute('chat')}
+            onFocus={() => preloadRoute('chat')}
             onClick={onChat}
             aria-label={tr('Open OjaChat')}
           >
@@ -388,6 +399,8 @@ export default function AppShell({
 
           <button
             className="quick-fab"
+            onMouseEnter={() => preloadRoute('quick')}
+            onFocus={() => preloadRoute('quick')}
             onClick={onQuick}
             aria-label={tr('Quick action')}
           >

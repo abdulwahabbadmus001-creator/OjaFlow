@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import {
   ArrowRight,
   BellRing,
@@ -17,7 +17,11 @@ import type { BusinessProfile, StoreData, UserProfile } from '../types';
 import { money } from '../lib/format';
 import { businessSnapshot } from '../lib/localChat';
 import { t } from '../lib/language';
-import BusinessTrendChart from '../components/BusinessTrendChart';
+import RouteFallback from '../components/RouteFallback';
+
+const BusinessTrendChart = lazy(
+  () => import('../components/BusinessTrendChart')
+);
 
 export default function Dashboard({
   profile,
@@ -565,10 +569,12 @@ export default function Dashboard({
         </div>
       </section>
 
-      <BusinessTrendChart
-        data={data}
-        language={profile.preferredLanguage}
-      />
+      <Suspense fallback={<RouteFallback label="Loading performance chart…" />}>
+        <BusinessTrendChart
+          data={data}
+          language={profile.preferredLanguage}
+        />
+      </Suspense>
 
       <section className="metric-grid refined">
         <Metric

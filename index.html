@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 
 <head>
@@ -14,10 +14,245 @@
   <link rel="icon" href="/ojaflow-of.svg?v=2" type="image/svg+xml" />
   <link rel="apple-touch-icon" sizes="180x180" href="/ojaflow-of.svg?v=2" />
   <title>OjaFlow</title>
+  <script>
+    (function () {
+      try {
+        var pref = localStorage.getItem('ojaflow:theme') || 'system';
+        var resolved =
+          pref === 'system'
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+            : pref;
+        document.documentElement.dataset.theme = resolved;
+      } catch (e) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    })();
+  </script>
+  <style>
+    :root {
+      --shell-bg: #f5f1e7;
+      --shell-surface: #fffdf8;
+      --shell-ink: #18211d;
+      --shell-muted: #777d78;
+      --shell-border: rgba(170, 124, 17, 0.18);
+      --shell-shimmer: rgba(15, 118, 87, 0.08);
+      --shell-gold: #d4af37;
+    }
+
+    :root[data-theme="dark"] {
+      --shell-bg: #030806;
+      --shell-surface: #111916;
+      --shell-ink: #fffdf7;
+      --shell-muted: #96a099;
+      --shell-border: rgba(212, 175, 55, 0.16);
+      --shell-shimmer: rgba(212, 175, 55, 0.09);
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--shell-bg);
+      color: var(--shell-ink);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .instant-app-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(circle at 5% -10%, rgba(11, 100, 73, 0.18), transparent 33%),
+        var(--shell-bg);
+    }
+
+    .instant-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      border-bottom: 1px solid var(--shell-border);
+      background: var(--shell-bg);
+    }
+
+    .instant-topbar-inner {
+      width: min(1540px, 100%);
+      min-height: 74px;
+      margin: 0 auto;
+      padding: 10px clamp(18px, 3.4vw, 52px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      box-sizing: border-box;
+    }
+
+    .instant-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .instant-monogram {
+      position: relative;
+      width: 39px;
+      height: 39px;
+      border-radius: 12px;
+      background: linear-gradient(145deg, rgba(212, 175, 55, 0.14), rgba(170, 124, 17, 0.04));
+      border: 1px solid rgba(212, 175, 55, 0.34);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: Georgia, serif;
+      font-weight: 700;
+      color: var(--shell-gold);
+      font-size: 1.05rem;
+      letter-spacing: -0.04em;
+    }
+
+    .instant-brand-copy {
+      display: grid;
+      gap: 2px;
+    }
+
+    .instant-brand-copy strong {
+      font-family: Georgia, serif;
+      font-size: 1.15rem;
+      line-height: 1;
+      color: var(--shell-ink);
+    }
+
+    .instant-brand-copy small {
+      font-size: 0.68rem;
+      color: var(--shell-muted);
+    }
+
+    .instant-nav-pills {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .instant-pill {
+      width: 78px;
+      height: 34px;
+      border-radius: 10px;
+      background: var(--shell-shimmer);
+      animation: instantPulse 1.4s ease-in-out infinite;
+    }
+
+    .instant-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--shell-border);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--shell-muted);
+    }
+
+    .instant-spinner-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid var(--shell-border);
+      border-top-color: var(--shell-gold);
+      animation: instantSpin 0.75s linear infinite;
+    }
+
+    .instant-main {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 34px clamp(18px, 3.5vw, 54px);
+      box-sizing: border-box;
+      display: grid;
+      gap: 18px;
+    }
+
+    .instant-hero-skeleton {
+      height: 170px;
+      border-radius: 22px;
+      border: 1px solid var(--shell-border);
+      background: linear-gradient(135deg, rgba(6, 63, 43, 0.88), rgba(11, 107, 69, 0.82));
+      animation: instantPulse 1.5s ease-in-out infinite;
+    }
+
+    .instant-grid-skeleton {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+    }
+
+    .instant-card-skeleton {
+      height: 118px;
+      border-radius: 18px;
+      border: 1px solid var(--shell-border);
+      background: var(--shell-surface);
+      animation: instantPulse 1.5s ease-in-out infinite;
+    }
+
+    @media (max-width: 860px) {
+      .instant-nav-pills {
+        display: none;
+      }
+    }
+
+    @keyframes instantSpin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes instantPulse {
+      0%,
+      100% {
+        opacity: 0.92;
+      }
+      50% {
+        opacity: 0.55;
+      }
+    }
+  </style>
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <div class="instant-app-shell" aria-label="Loading OjaFlow">
+      <header class="instant-topbar">
+        <div class="instant-topbar-inner">
+          <div class="instant-brand">
+            <span class="instant-monogram" aria-hidden="true">OF</span>
+            <span class="instant-brand-copy">
+              <strong>OjaFlow</strong>
+              <small>Business Command Centre</small>
+            </span>
+          </div>
+          <div class="instant-nav-pills" aria-hidden="true">
+            <span class="instant-pill"></span>
+            <span class="instant-pill"></span>
+            <span class="instant-pill"></span>
+            <span class="instant-pill"></span>
+          </div>
+          <div class="instant-status-badge">
+            <span class="instant-spinner-dot" aria-hidden="true"></span>
+            <span>Ready</span>
+          </div>
+        </div>
+      </header>
+      <main class="instant-main" aria-hidden="true">
+        <div class="instant-hero-skeleton"></div>
+        <div class="instant-grid-skeleton">
+          <div class="instant-card-skeleton"></div>
+          <div class="instant-card-skeleton"></div>
+          <div class="instant-card-skeleton"></div>
+          <div class="instant-card-skeleton"></div>
+        </div>
+      </main>
+    </div>
+  </div>
   <div id="recaptcha-container"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
