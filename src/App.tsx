@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   AppSection,
   BusinessProfile,
@@ -15,20 +15,14 @@ import {
   BusinessSetupRoute,
   LegalPagesModal,
   OjaChatDrawer,
+  ProtectedRoute,
+  PublicOnlyRoute,
   QuickActionSheet,
-  resolveInitialSection
+  resolveInitialSection,
+  syncSectionHash
 } from './router';
-import {
-  clearAllUserCaches,
-  clearUserCache,
-  loadCachedSession,
-  saveBusiness,
-  saveLastSync,
-  saveProfile,
-  saveStore,
-  scheduleDeferredTask
-} from './lib/storage';
-import { api, clearCsrf, type RemoteStoreSnapshot } from './lib/api';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { api, type RemoteStoreSnapshot } from './lib/api';
 import { useStore } from './lib/useStore';
 import { LanguageProvider } from './lib/i18n';
 
@@ -60,12 +54,19 @@ function resolveTheme(preference: ThemePreference) {
     : 'light';
 }
 
-export default function App() {
-  // Synchronously hydrate cached session so returning users render the UI shell in 0ms
-  const [session, setSession] = useState<UserProfile | null>(() =>
-    loadCachedSession()
-  );
-  const [section, setSection] = useState<AppSection>(() =>
+function AppContent() {
+  const {
+    session,
+    business: authBusiness,
+    isAuthenticated,
+    authenticateUser,
+    updateSessionProfile,
+    updateSessionBusiness,
+    logout: performLogout,
+    clearDeletedAccount
+  } = useAuth();
+
+  const [section, setSectionState] = useState<AppSection>(() =>
     resolveInitialSection()
   );
   const [quick, setQuick] = useState(false);
@@ -78,13 +79,18 @@ export default function App() {
   );
   const [adminView, setAdminView] = useState(() => isSecretAdminRoute());
 
+  const setSection = useCallback((nextSection: AppSection) => {
+    setSectionState(nextSection);
+    syncSectionHash(nextSection);
+  }, []);
+
   useEffect(() => {
     const syncRoute = () => {
       const isAdmin = isSecretAdminRoute();
       setAdminView(isAdmin);
-      if (!isAdmin) {
+      if (!isAdmin && isAuthenticated) {
         const nextSection = resolveInitialSection();
-        setSection(prev => (window.location.hash ? nextSection : prev));
+        setSectionState(prev => (window.location.hash ? nextSection : prev));
       }
     };
     window.addEventListener('hashchange', syncRoute);
@@ -93,7 +99,7 @@ export default function App() {
       window.removeEventListener('hashchange', syncRoute);
       window.removeEventListener('popstate', syncRoute);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const uid = session?.uid || '';
   const store = useStore(uid);
@@ -112,85 +118,35 @@ export default function App() {
     return () => media.removeEventListener('change', apply);
   }, [theme]);
 
-  // Defer session verification to the background so it never blocks first paint
-  useEffect(() => {
-    let active = true;
-    const cancelDeferred = scheduleDeferredTask(() => {
-      if (!navigator.onLine) return;
-      void api
-        .session()
-        .then(result => {
-          if (!active) return;
-          activate(result.profile, result.business, result.store, false);
-        })
-        .catch(() => {
-          if (!active || !navigator.onLine) return;
-          clearAllUserCaches();
-          clearCsrf();
-          setSession(null);
-        });
-    }, 80);
-
-    return () => {
-      active = false;
-      cancelDeferred();
-    };
-  }, []);
-
-  function activate(
+  function handleAuthenticated(
     profile: UserProfile,
     business?: BusinessProfile | null,
     remoteStore?: RemoteStoreSnapshot,
-    resetSection = true
+    tokens?: { accessToken?: string; csrfToken?: string }
   ) {
-    if (session && session.uid !== profile.uid) {
-      clearUserCache(session.uid);
-    }
-    saveProfile(profile);
+    authenticateUser(profile, business, remoteStore, tokens);
     store.actions.setProfile(profile);
     if (business) {
-      saveBusiness(profile.uid, business);
       store.actions.setBusiness(business);
     }
-    if (remoteStore?.data) {
-      saveStore(profile.uid, remoteStore.data);
-      if (remoteStore.updatedAt) {
-        saveLastSync(profile.uid, remoteStore.updatedAt);
-      }
-    }
-    setSession(profile);
-    if (resetSection) {
-      setSection('home');
-    }
-  }
-
-  async function logout() {
-    try {
-      await store.actions.syncNow();
-    } catch {
-      /* proceed with logout even if offline */
-    }
-    try {
-      await api.logout();
-    } catch {
-      /* local cleanup still proceeds */
-    }
-    if (uid) clearUserCache(uid);
-    clearCsrf();
-    setSession(null);
     setSection('home');
-    setChat(false);
   }
 
-  function deleted() {
-    if (uid) clearUserCache(uid);
-    clearCsrf();
-    setSession(null);
-    setSection('home');
+  async function handleLogout() {
+    await performLogout(() => store.actions.syncNow());
+    setSectionState('home');
     setChat(false);
+    setQuick(false);
   }
 
-  const currentBusiness = store.business;
+  function handleDeleted() {
+    clearDeletedAccount();
+    setSectionState('home');
+    setChat(false);
+    setQuick(false);
+  }
+
+  const currentBusiness = store.business || authBusiness;
   const currentProfile = store.profile || session;
   const shell = useMemo(() => {
     if (!session || !currentProfile || !currentBusiness) return null;
@@ -210,131 +166,23 @@ export default function App() {
     );
   }
 
-  if (!session) {
-    return (
-      <>
-        <Suspense fallback={<AppShellFallback />}>
-          <AuthRoute
-            onAuthenticated={(profile, business, remoteStore) =>
-              activate(profile, business, remoteStore, true)
-            }
-            cookieConsentAccepted={cookieConsentAccepted}
-          />
-        </Suspense>
-        {!cookieConsentAccepted && (
-          <CookieBanner
-            onAccept={() => {
-              localStorage.setItem(COOKIE_CONSENT_KEY, 'true');
-              setCookieConsentAccepted(true);
-            }}
-            onOpenPrivacy={() => setLegalPage('privacy')}
-          />
-        )}
-        {legalPage && (
-          <Suspense fallback={null}>
-            <LegalPagesModal
-              type={legalPage}
-              onClose={() => setLegalPage(null)}
-            />
-          </Suspense>
-        )}
-      </>
-    );
-  }
-
-  if (!store.business || !session.businessProfileCompleted) {
-    return (
-      <LanguageProvider language={session.preferredLanguage}>
-        <Suspense fallback={<AppShellFallback subtitle="Business Setup" />}>
-          <BusinessSetupRoute
-            phone={session.phoneNumber}
-            onComplete={business => {
-              void (async () => {
-                const profile = {
-                  ...session,
-                  businessProfileCompleted: true,
-                  onboardingCompleted: true
-                };
-                try {
-                  const remote = await api.saveProfile(profile, business);
-                  store.actions.setBusiness(remote.business || business);
-                  store.actions.setProfile(remote.profile);
-                  activate(remote.profile, remote.business || business, undefined, true);
-                } catch {
-                  store.actions.setBusiness(business);
-                  store.actions.setProfile(profile);
-                  activate(profile, business, undefined, true);
-                }
-              })();
-            }}
-          />
-        </Suspense>
-      </LanguageProvider>
-    );
-  }
-
-  if (!shell) {
-    return <AppShellFallback />;
-  }
-  const { profile, business } = shell;
-
-  return (
-    <LanguageProvider language={profile.preferredLanguage}>
-      <AppShell
-        section={section}
-        setSection={setSection}
-        profile={profile}
-        business={business}
-        syncStatus={store.syncStatus}
-        pendingOfflineCount={store.pendingOfflineCount}
-        syncToast={store.syncToast}
-        onDismissSyncToast={store.dismissSyncToast}
-        onQuick={() => setQuick(true)}
-        onChat={() => setChat(true)}
-      >
-        <AppRouter
-          section={section}
-          setSection={setSection}
-          profile={profile}
-          business={business}
-          data={store.data}
-          actions={store.actions}
-          theme={theme}
-          setTheme={setTheme}
-          syncStatus={store.syncStatus}
-          lastSync={store.lastSync}
-          onProfileChange={next => {
-            store.actions.setProfile(next);
-            setSession(next);
-          }}
-          onLogout={logout}
-          onDelete={deleted}
-          setLegalPage={setLegalPage}
+  const loginView = (
+    <PublicOnlyRoute fallback={<AppShellFallback />}>
+      <Suspense fallback={<AppShellFallback />}>
+        <AuthRoute
+          onAuthenticated={handleAuthenticated}
+          cookieConsentAccepted={cookieConsentAccepted}
         />
-
-        {quick && (
-          <Suspense fallback={null}>
-            <QuickActionSheet
-              onClose={() => setQuick(false)}
-              onNavigate={setSection}
-            />
-          </Suspense>
-        )}
-
-        {chat && (
-          <Suspense fallback={<RouteFallback label="Opening OjaChat…" />}>
-            <OjaChatDrawer
-              data={store.data}
-              business={business}
-              onClose={() => setChat(false)}
-              onAddSale={store.actions.addSale}
-              onAddExpense={store.actions.addExpense}
-              onAddDebt={store.actions.addDebt}
-            />
-          </Suspense>
-        )}
-      </AppShell>
-
+      </Suspense>
+      {!cookieConsentAccepted && (
+        <CookieBanner
+          onAccept={() => {
+            localStorage.setItem(COOKIE_CONSENT_KEY, 'true');
+            setCookieConsentAccepted(true);
+          }}
+          onOpenPrivacy={() => setLegalPage('privacy')}
+        />
+      )}
       {legalPage && (
         <Suspense fallback={null}>
           <LegalPagesModal
@@ -343,6 +191,124 @@ export default function App() {
           />
         </Suspense>
       )}
-    </LanguageProvider>
+    </PublicOnlyRoute>
+  );
+
+  return (
+    <ProtectedRoute fallback={loginView}>
+      {!session ? (
+        loginView
+      ) : !currentBusiness || !session.businessProfileCompleted ? (
+        <LanguageProvider language={session.preferredLanguage}>
+          <Suspense fallback={<AppShellFallback subtitle="Business Setup" />}>
+            <BusinessSetupRoute
+              phone={session.phoneNumber}
+              onComplete={business => {
+                void (async () => {
+                  const profile: UserProfile = {
+                    ...session,
+                    businessProfileCompleted: true,
+                    onboardingCompleted: true
+                  };
+                  try {
+                    const remote = await api.saveProfile(profile, business);
+                    const nextBusiness = remote.business || business;
+                    store.actions.setBusiness(nextBusiness);
+                    store.actions.setProfile(remote.profile);
+                    handleAuthenticated(remote.profile, nextBusiness);
+                  } catch {
+                    store.actions.setBusiness(business);
+                    store.actions.setProfile(profile);
+                    handleAuthenticated(profile, business);
+                  }
+                })();
+              }}
+            />
+          </Suspense>
+        </LanguageProvider>
+      ) : !shell ? (
+        <AppShellFallback />
+      ) : (
+        <LanguageProvider language={shell.profile.preferredLanguage}>
+          <AppShell
+            section={section}
+            setSection={setSection}
+            profile={shell.profile}
+            business={shell.business}
+            syncStatus={store.syncStatus}
+            pendingOfflineCount={store.pendingOfflineCount}
+            syncToast={store.syncToast}
+            onDismissSyncToast={store.dismissSyncToast}
+            onQuick={() => setQuick(true)}
+            onChat={() => setChat(true)}
+          >
+            <AppRouter
+              section={section}
+              setSection={setSection}
+              profile={shell.profile}
+              business={shell.business}
+              data={store.data}
+              actions={{
+                ...store.actions,
+                setBusiness: nextBusiness => {
+                  store.actions.setBusiness(nextBusiness);
+                  updateSessionBusiness(nextBusiness);
+                }
+              }}
+              theme={theme}
+              setTheme={setTheme}
+              syncStatus={store.syncStatus}
+              lastSync={store.lastSync}
+              onProfileChange={next => {
+                store.actions.setProfile(next);
+                updateSessionProfile(next);
+              }}
+              onLogout={handleLogout}
+              onDelete={handleDeleted}
+              setLegalPage={setLegalPage}
+            />
+
+            {quick && (
+              <Suspense fallback={null}>
+                <QuickActionSheet
+                  onClose={() => setQuick(false)}
+                  onNavigate={setSection}
+                />
+              </Suspense>
+            )}
+
+            {chat && (
+              <Suspense fallback={<RouteFallback label="Opening OjaChat…" />}>
+                <OjaChatDrawer
+                  data={store.data}
+                  business={shell.business}
+                  onClose={() => setChat(false)}
+                  onAddSale={store.actions.addSale}
+                  onAddExpense={store.actions.addExpense}
+                  onAddDebt={store.actions.addDebt}
+                />
+              </Suspense>
+            )}
+          </AppShell>
+
+          {legalPage && (
+            <Suspense fallback={null}>
+              <LegalPagesModal
+                type={legalPage}
+                onClose={() => setLegalPage(null)}
+              />
+            </Suspense>
+          )}
+        </LanguageProvider>
+      )}
+    </ProtectedRoute>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

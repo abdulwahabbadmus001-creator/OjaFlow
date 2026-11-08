@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import type {
   AppSection,
   BusinessProfile,
@@ -13,7 +13,12 @@ import type {
   ThemePreference,
   UserProfile
 } from './types';
-import RouteFallback from './components/RouteFallback';
+import RouteFallback, { AppShellFallback } from './components/RouteFallback';
+import {
+  navigateToDashboardHash,
+  navigateToLoginHash,
+  useAuth
+} from './context/AuthContext';
 
 // Lazy-loaded route views (Route-Based Code Splitting)
 export const DashboardRoute = lazy(() => import('./pages/Dashboard'));
@@ -61,6 +66,31 @@ export function preloadRoute(target: RoutePreloadTarget): void {
   }
 }
 
+export function sectionToHash(section: AppSection): string {
+  switch (section) {
+    case 'home':
+      return '#/dashboard';
+    case 'sales':
+      return '#/sales';
+    case 'inventory':
+      return '#/stock';
+    case 'debts':
+      return '#/debts';
+    case 'more':
+      return '#/settings';
+    default:
+      return '#/dashboard';
+  }
+}
+
+export function syncSectionHash(section: AppSection): void {
+  if (typeof window === 'undefined') return;
+  const targetHash = sectionToHash(section);
+  if (window.location.hash !== targetHash) {
+    window.history.replaceState(null, '', targetHash);
+  }
+}
+
 export function resolveInitialSection(): AppSection {
   if (typeof window === 'undefined') return 'home';
   const slug = window.location.hash
@@ -95,6 +125,66 @@ export function resolveInitialSection(): AppSection {
     default:
       return 'home';
   }
+}
+
+/**
+ * Router Guard: Ensures only authenticated users can access protected dashboard routes.
+ * Unauthenticated visitors are automatically redirected back to `#/login`.
+ */
+export function ProtectedRoute({
+  children,
+  fallback
+}: {
+  children: ReactNode;
+  fallback: ReactNode;
+}) {
+  const { isAuthenticated, isInitializing } = useAuth();
+
+  useEffect(() => {
+    if (!isInitializing && !isAuthenticated) {
+      navigateToLoginHash();
+    }
+  }, [isAuthenticated, isInitializing]);
+
+  if (isInitializing) {
+    return <AppShellFallback />;
+  }
+
+  if (!isAuthenticated) {
+    return <>{fallback}</>;
+  }
+
+  return <>{children}</>;
+}
+
+/**
+ * Router Guard: Ensures authenticated users visiting `#/login` are automatically
+ * routed straight to `#/dashboard`, bypassing the login screen entirely.
+ */
+export function PublicOnlyRoute({
+  children,
+  fallback = null
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
+  const { isAuthenticated, isInitializing } = useAuth();
+
+  useEffect(() => {
+    if (!isInitializing && isAuthenticated) {
+      navigateToDashboardHash();
+    }
+  }, [isAuthenticated, isInitializing]);
+
+  if (isInitializing) {
+    return <AppShellFallback />;
+  }
+
+  if (isAuthenticated) {
+    return <>{fallback}</>;
+  }
+
+  return <>{children}</>;
 }
 
 export interface AppRouterProps {

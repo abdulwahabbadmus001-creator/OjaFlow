@@ -16,32 +16,70 @@ const API_BASE = (
   import.meta.env.VITE_API_BASE_URL || '/api'
 ).replace(/\/$/, '');
 
-const CSRF_KEY = 'ojaflow:csrf';
-const SESSION_TOKEN_KEY = 'ojaflow:session_token';
+export const CSRF_KEY = 'ojaflow:csrf';
+export const SESSION_TOKEN_KEY = 'ojaflow:session_token';
 const ADMIN_CSRF_KEY = 'ojaflow:admin:csrf';
 const ADMIN_TOKEN_KEY = 'ojaflow:admin:session_token';
 
-let csrfToken =
-  sessionStorage.getItem(CSRF_KEY) || '';
-let sessionToken =
-  sessionStorage.getItem(SESSION_TOKEN_KEY) || '';
-let adminCsrfToken =
-  sessionStorage.getItem(ADMIN_CSRF_KEY) || '';
-let adminSessionToken =
-  sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
+function readPersistedValue(key: string): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const localVal = localStorage.getItem(key);
+    if (localVal) return localVal;
+    const sessionVal = sessionStorage.getItem(key);
+    if (sessionVal) {
+      localStorage.setItem(key, sessionVal);
+      return sessionVal;
+    }
+  } catch {
+    // ignore storage access errors
+  }
+  return '';
+}
 
-function rememberCsrf(value?: string) {
+let csrfToken = readPersistedValue(CSRF_KEY);
+let sessionToken = readPersistedValue(SESSION_TOKEN_KEY);
+let adminCsrfToken =
+  (typeof window !== 'undefined' && sessionStorage.getItem(ADMIN_CSRF_KEY)) || '';
+let adminSessionToken =
+  (typeof window !== 'undefined' && sessionStorage.getItem(ADMIN_TOKEN_KEY)) || '';
+
+export function rememberCsrf(value?: string) {
   if (!value) return;
 
   csrfToken = value;
-  sessionStorage.setItem(CSRF_KEY, value);
+  try {
+    localStorage.setItem(CSRF_KEY, value);
+    sessionStorage.setItem(CSRF_KEY, value);
+  } catch {
+    // ignore storage quota errors
+  }
 }
 
-function rememberSessionToken(value?: string) {
+export function rememberSessionToken(value?: string) {
   if (!value) return;
 
   sessionToken = value;
-  sessionStorage.setItem(SESSION_TOKEN_KEY, value);
+  try {
+    localStorage.setItem(SESSION_TOKEN_KEY, value);
+    sessionStorage.setItem(SESSION_TOKEN_KEY, value);
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+export function getSessionToken(): string {
+  if (!sessionToken) {
+    sessionToken = readPersistedValue(SESSION_TOKEN_KEY);
+  }
+  return sessionToken;
+}
+
+export function getCsrfToken(): string {
+  if (!csrfToken) {
+    csrfToken = readPersistedValue(CSRF_KEY);
+  }
+  return csrfToken;
 }
 
 function rememberAdminCsrf(value?: string) {
@@ -61,8 +99,14 @@ function rememberAdminToken(value?: string) {
 export function clearCsrf() {
   csrfToken = '';
   sessionToken = '';
-  sessionStorage.removeItem(CSRF_KEY);
-  sessionStorage.removeItem(SESSION_TOKEN_KEY);
+  try {
+    localStorage.removeItem(CSRF_KEY);
+    localStorage.removeItem(SESSION_TOKEN_KEY);
+    sessionStorage.removeItem(CSRF_KEY);
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+  } catch {
+    // ignore storage errors
+  }
 }
 
 export function clearAdminCsrf() {
@@ -74,6 +118,15 @@ export function clearAdminCsrf() {
 
 export function hasAdminToken(): boolean {
   return Boolean(adminSessionToken || sessionStorage.getItem(ADMIN_TOKEN_KEY));
+}
+
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
 }
 
 async function request<T>(
@@ -88,16 +141,19 @@ async function request<T>(
     headers.set('Content-Type', 'application/json');
   }
 
+  const activeSessionToken = getSessionToken();
+  const activeCsrfToken = getCsrfToken();
+
   if (isAdminPath) {
     if (adminSessionToken && !headers.has('X-Admin-Authorization')) {
       headers.set('X-Admin-Authorization', `Bearer ${adminSessionToken}`);
     }
-  } else if (sessionToken && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${sessionToken}`);
+  } else if (activeSessionToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${activeSessionToken}`);
   }
 
-  if (csrf && csrfToken) {
-    headers.set('X-CSRF-Token', csrfToken);
+  if (csrf && activeCsrfToken) {
+    headers.set('X-CSRF-Token', activeCsrfToken);
   }
 
   let response: Response;
@@ -109,8 +165,9 @@ async function request<T>(
       credentials: 'include'
     });
   } catch {
-    throw new Error(
-      'OjaFlow could not connect right now. Check your internet connection and try again.'
+    throw new ApiError(
+      'OjaFlow could not connect right now. Check your internet connection and try again.',
+      0
     );
   }
 
@@ -128,7 +185,7 @@ async function request<T>(
       message = data.error;
     }
 
-    throw new Error(message);
+    throw new ApiError(message, response.status);
   }
 
   if (!isAdminPath && data.csrfToken) {
@@ -152,6 +209,7 @@ export type AuthResult = {
   business: BusinessProfile | null;
   store?: RemoteStoreSnapshot;
   csrfToken: string;
+  accessToken?: string;
 };
 
 export const api = {

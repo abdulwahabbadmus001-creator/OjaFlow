@@ -26,6 +26,16 @@ function key(uid: string, name: string) {
 }
 
 const ACTIVE_UID_KEY = 'ojaflow:active_uid';
+export const AUTH_SESSION_KEY = 'ojaflow:auth_session';
+
+export interface PersistedAuthSession {
+  uid: string;
+  profile: UserProfile;
+  business: BusinessProfile | null;
+  accessToken?: string;
+  csrfToken?: string;
+  savedAt: string;
+}
 
 export function scheduleDeferredTask(
   callback: () => void,
@@ -113,6 +123,19 @@ export function saveBusiness(
     key(uid, 'business'),
     JSON.stringify(business)
   );
+  try {
+    const rawSession = localStorage.getItem(AUTH_SESSION_KEY);
+    if (rawSession) {
+      const parsed = JSON.parse(rawSession) as PersistedAuthSession;
+      if (parsed.uid === uid) {
+        parsed.business = business;
+        parsed.savedAt = new Date().toISOString();
+        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(parsed));
+      }
+    }
+  } catch {
+    // ignore storage parse error
+  }
 }
 
 export function loadProfile(
@@ -147,17 +170,123 @@ export function saveProfile(
     JSON.stringify(profile)
   );
   localStorage.setItem(ACTIVE_UID_KEY, profile.uid);
+  try {
+    const rawSession = localStorage.getItem(AUTH_SESSION_KEY);
+    if (rawSession) {
+      const parsed = JSON.parse(rawSession) as PersistedAuthSession;
+      if (parsed.uid === profile.uid) {
+        parsed.profile = profile;
+        parsed.savedAt = new Date().toISOString();
+        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(parsed));
+      }
+    }
+  } catch {
+    // ignore storage parse error
+  }
 }
 
-export function loadCachedSession(): UserProfile | null {
+export function saveAuthSession(params: {
+  profile: UserProfile;
+  business?: BusinessProfile | null;
+  accessToken?: string;
+  csrfToken?: string;
+}): PersistedAuthSession {
+  const { profile, business, accessToken, csrfToken } = params;
+  saveProfile(profile);
+  const resolvedBusiness =
+    business !== undefined ? business : loadBusiness(profile.uid);
+  if (resolvedBusiness) {
+    saveBusiness(profile.uid, resolvedBusiness);
+  }
+
+  const persistedToken =
+    accessToken ||
+    localStorage.getItem('ojaflow:session_token') ||
+    sessionStorage.getItem('ojaflow:session_token') ||
+    undefined;
+  const persistedCsrf =
+    csrfToken ||
+    localStorage.getItem('ojaflow:csrf') ||
+    sessionStorage.getItem('ojaflow:csrf') ||
+    undefined;
+
+  if (persistedToken) {
+    localStorage.setItem('ojaflow:session_token', persistedToken);
+    sessionStorage.setItem('ojaflow:session_token', persistedToken);
+  }
+  if (persistedCsrf) {
+    localStorage.setItem('ojaflow:csrf', persistedCsrf);
+    sessionStorage.setItem('ojaflow:csrf', persistedCsrf);
+  }
+
+  const snapshot: PersistedAuthSession = {
+    uid: profile.uid,
+    profile: {
+      ...profile,
+      preferredLanguage: profile.preferredLanguage || 'en'
+    },
+    business: resolvedBusiness ?? null,
+    accessToken: persistedToken,
+    csrfToken: persistedCsrf,
+    savedAt: new Date().toISOString()
+  };
+
+  localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(snapshot));
+  localStorage.setItem(ACTIVE_UID_KEY, profile.uid);
+  return snapshot;
+}
+
+export function loadAuthSession(): PersistedAuthSession | null {
   if (typeof window === 'undefined') return null;
 
   try {
+    const raw = localStorage.getItem(AUTH_SESSION_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<PersistedAuthSession>;
+      if (parsed?.profile?.uid) {
+        const uid = parsed.profile.uid;
+        const latestProfile = loadProfile(uid) || {
+          ...parsed.profile,
+          preferredLanguage: parsed.profile.preferredLanguage || 'en'
+        };
+        const latestBusiness = loadBusiness(uid) ?? parsed.business ?? null;
+        const token =
+          localStorage.getItem('ojaflow:session_token') ||
+          parsed.accessToken ||
+          undefined;
+        const csrf =
+          localStorage.getItem('ojaflow:csrf') ||
+          parsed.csrfToken ||
+          undefined;
+
+        if (token && !localStorage.getItem('ojaflow:session_token')) {
+          localStorage.setItem('ojaflow:session_token', token);
+        }
+        if (csrf && !localStorage.getItem('ojaflow:csrf')) {
+          localStorage.setItem('ojaflow:csrf', csrf);
+        }
+        localStorage.setItem(ACTIVE_UID_KEY, uid);
+
+        return {
+          uid,
+          profile: latestProfile,
+          business: latestBusiness,
+          accessToken: token,
+          csrfToken: csrf,
+          savedAt: parsed.savedAt || new Date().toISOString()
+        };
+      }
+    }
+
+    // Fallback migration for existing cached profile in localStorage
     const activeUid = localStorage.getItem(ACTIVE_UID_KEY);
     if (activeUid) {
       const activeProfile = loadProfile(activeUid);
       if (activeProfile?.uid) {
-        return activeProfile;
+        return saveAuthSession({
+          profile: activeProfile,
+          business: loadBusiness(activeProfile.uid)
+        });
       }
     }
 
@@ -168,8 +297,10 @@ export function loadCachedSession(): UserProfile | null {
         if (uid) {
           const found = loadProfile(uid);
           if (found?.uid) {
-            localStorage.setItem(ACTIVE_UID_KEY, found.uid);
-            return found;
+            return saveAuthSession({
+              profile: found,
+              business: loadBusiness(found.uid)
+            });
           }
         }
       }
@@ -179,6 +310,28 @@ export function loadCachedSession(): UserProfile | null {
   }
 
   return null;
+}
+
+export function clearAuthSession(uid?: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const activeUid = uid || localStorage.getItem(ACTIVE_UID_KEY) || '';
+    localStorage.removeItem(AUTH_SESSION_KEY);
+    localStorage.removeItem(ACTIVE_UID_KEY);
+    localStorage.removeItem('ojaflow:session_token');
+    localStorage.removeItem('ojaflow:csrf');
+    sessionStorage.removeItem('ojaflow:session_token');
+    sessionStorage.removeItem('ojaflow:csrf');
+    if (activeUid) {
+      clearUserCache(activeUid);
+    }
+  } catch {
+    // ignore storage cleanup errors
+  }
+}
+
+export function loadCachedSession(): UserProfile | null {
+  return loadAuthSession()?.profile ?? null;
 }
 
 export function loadNotifications(
@@ -335,6 +488,18 @@ export function clearUserCache(
 
   if (localStorage.getItem(ACTIVE_UID_KEY) === uid) {
     localStorage.removeItem(ACTIVE_UID_KEY);
+  }
+
+  try {
+    const rawSession = localStorage.getItem(AUTH_SESSION_KEY);
+    if (rawSession) {
+      const parsed = JSON.parse(rawSession) as Partial<PersistedAuthSession>;
+      if (parsed.uid === uid) {
+        localStorage.removeItem(AUTH_SESSION_KEY);
+      }
+    }
+  } catch {
+    // ignore storage parse error
   }
 
   for (

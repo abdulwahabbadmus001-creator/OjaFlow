@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import {
   ArrowRight,
   BellRing,
@@ -41,9 +41,8 @@ export default function Dashboard({
   onOpenCustomers?: () => void;
 }) {
   const checklistStorageKey = `ojaflow:${profile.uid}:onboarding-checklist-dismissed`;
-  const [checklistDismissed, setChecklistDismissed] = useState<boolean>(
-    () => localStorage.getItem(checklistStorageKey) === 'true'
-  );
+  const checklistDismissed =
+    localStorage.getItem(checklistStorageKey) === 'true';
 
   const hasFirstProduct = data.products.length > 0;
   const hasFirstSale = data.sales.length > 0;
@@ -93,10 +92,17 @@ export default function Dashboard({
   ];
 
   const completedStepsCount = onboardingSteps.filter(s => s.completed).length;
-  const showOnboardingChecklist =
-    !checklistDismissed &&
-    (completedStepsCount < 3 ||
-      (data.products.length <= 2 && data.sales.length <= 2));
+  const pendingOnboardingSteps = onboardingSteps.filter(
+    step => !step.completed
+  );
+  const showOnboardingChecklist = !checklistDismissed && completedStepsCount < 3;
+
+  useEffect(() => {
+    if (completedStepsCount === onboardingSteps.length) {
+      localStorage.setItem(checklistStorageKey, 'true');
+    }
+  }, [checklistStorageKey, completedStepsCount, onboardingSteps.length]);
+
   const snap = businessSnapshot(data);
 
   const recent = [...data.sales]
@@ -277,19 +283,6 @@ export default function Dashboard({
                   : 'Complete these 3 quick steps to unlock automated stock tracking, profit insights, and WhatsApp receipts.'}
               </p>
             </div>
-
-            {completedStepsCount === 3 && (
-              <button
-                type="button"
-                className="secondary-btn compact"
-                onClick={() => {
-                  localStorage.setItem(checklistStorageKey, 'true');
-                  setChecklistDismissed(true);
-                }}
-              >
-                Dismiss checklist
-              </button>
-            )}
           </div>
 
           <div
@@ -322,7 +315,7 @@ export default function Dashboard({
               gap: '0.85rem'
             }}
           >
-            {onboardingSteps.map(step => {
+            {pendingOnboardingSteps.map(step => {
               const StepIcon = step.icon;
               return (
                 <div

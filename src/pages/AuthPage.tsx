@@ -55,7 +55,8 @@ export default function AuthPage({
   onAuthenticated: (
     profile: UserProfile,
     business?: BusinessProfile | null,
-    remoteStore?: RemoteStoreSnapshot
+    remoteStore?: RemoteStoreSnapshot,
+    tokens?: { accessToken?: string; csrfToken?: string }
   ) => void;
   cookieConsentAccepted: boolean;
 }) {
@@ -118,7 +119,10 @@ export default function AuthPage({
         pin
       );
 
-      onAuthenticated(result.profile, result.business, result.store);
+      onAuthenticated(result.profile, result.business, result.store, {
+        accessToken: result.accessToken,
+        csrfToken: result.csrfToken
+      });
     } catch (e) {
       setError(
         e instanceof Error
@@ -184,7 +188,10 @@ export default function AuthPage({
         securityAnswer,
         preferredLanguage
       });
-      onAuthenticated(result.profile, result.business, result.store);
+      onAuthenticated(result.profile, result.business, result.store, {
+        accessToken: result.accessToken,
+        csrfToken: result.csrfToken
+      });
     } catch (e) {
       setError(
         e instanceof Error
@@ -286,7 +293,10 @@ export default function AuthPage({
         newPin
       });
       resetRecoveryState();
-      onAuthenticated(result.profile, result.business, result.store);
+      onAuthenticated(result.profile, result.business, result.store, {
+        accessToken: result.accessToken,
+        csrfToken: result.csrfToken
+      });
     } catch (e) {
       setError(
         e instanceof Error
