@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 .env
 .env.local
@@ -10,6 +10,7 @@ Thumbs.db
 npm-debug.log*
 
 # Python backend
+ojaflow.db
 backend/.env
 backend/.venv/
 backend/__pycache__/

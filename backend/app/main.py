@@ -1,9 +1,14 @@
 from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import get_settings
 from .database import Base, engine
-from .migrations import ensure_ojatag_schema
+from .migrations import ensure_ojatag_schema, ensure_proof_schema
+from .modules.proof.router import router as proof_router
+from .modules.proof.service import ProofError
 from .routers import (
     account,
     admin,
@@ -19,8 +24,9 @@ settings = get_settings()
 # First create any completely new tables.
 Base.metadata.create_all(bind=engine)
 
-# Then safely upgrade/backfill the existing users table.
+# Then safely upgrade/backfill the existing users table and proof indexes.
 ensure_ojatag_schema(engine)
+ensure_proof_schema(engine)
 
 
 app = FastAPI(
@@ -54,6 +60,84 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(ProofError)
+async def proof_error_handler(
+    _request: Request,
+    exc: ProofError,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": exc.code,
+                "message": exc.message,
+            }
+        },
+        headers=exc.headers,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(
+    request: Request,
+    exc: RequestValidationError,
+) -> JSONResponse:
+    if request.url.path.startswith("/api/proof"):
+        errors = exc.errors()
+        first_msg = (
+            errors[0].get("msg", "Validation error.")
+            if errors
+            else "Validation error."
+        )
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": str(first_msg),
+                }
+            },
+        )
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(
+    request: Request,
+    exc: StarletteHTTPException,
+) -> JSONResponse:
+    if request.url.path.startswith("/api/proof"):
+        code_map = {
+            400: "BAD_REQUEST",
+            401: "UNAUTHORIZED",
+            403: "FORBIDDEN",
+            404: "NOT_FOUND",
+            409: "CONFLICT",
+            413: "PAYLOAD_TOO_LARGE",
+            422: "VALIDATION_ERROR",
+            429: "RATE_LIMIT_EXCEEDED",
+        }
+        error_code = code_map.get(exc.status_code, f"HTTP_{exc.status_code}")
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": {
+                    "code": error_code,
+                    "message": str(exc.detail),
+                }
+            },
+            headers=getattr(exc, "headers", None),
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=getattr(exc, "headers", None),
+    )
+
+
 @app.middleware("http")
 async def security_headers_middleware(
     request: Request, call_next
@@ -72,7 +156,9 @@ async def security_headers_middleware(
         response.headers["Strict-Transport-Security"] = (
             "max-age=31536000; includeSubDomains"
         )
-    if request.url.path.startswith("/api/"):
+    if request.url.path.startswith("/api/proof/verify/"):
+        response.headers["Cache-Control"] = "no-store"
+    elif request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = (
             "no-store, no-cache, must-revalidate, private"
         )
@@ -107,6 +193,11 @@ app.include_router(
 
 app.include_router(
     admin.router,
+    prefix="/api",
+)
+
+app.include_router(
+    proof_router,
     prefix="/api",
 )
 

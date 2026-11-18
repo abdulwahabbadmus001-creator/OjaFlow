@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./ojaflow.db"
 
     frontend_origins: str = "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
+    proof_allowed_origins: str = "http://localhost:5173"
+    proof_public_base_url: str = "http://localhost:5173"
 
     session_secret: str = "ojaflow-development-only-secret-key-change-before-production-32b"
     session_days: int = 14
@@ -51,11 +53,19 @@ class Settings(BaseSettings):
 
     @property
     def origins(self) -> list[str]:
-        return [
-            origin.strip()
-            for origin in self.frontend_origins.split(",")
-            if origin.strip()
+        combined = [
+            *(self.frontend_origins or "").split(","),
+            *(self.proof_allowed_origins or "").split(","),
+            "http://localhost:5173",
         ]
+        seen: set[str] = set()
+        result: list[str] = []
+        for raw in combined:
+            origin = raw.strip()
+            if origin and origin != "*" and origin not in seen:
+                seen.add(origin)
+                result.append(origin)
+        return result
 
 
 @lru_cache

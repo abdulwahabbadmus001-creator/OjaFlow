@@ -474,26 +474,41 @@ def _is_token_revoked(jti: str | None) -> bool:
 
 
 def set_session_cookie(response: Response, token: str) -> None:
-    is_secure = settings.cookie_secure or settings.app_env.lower() == "production"
+    is_prod = settings.app_env.lower() == "production"
+    is_secure = settings.cookie_secure or is_prod
+    # Because the OjaProof/OjaFlow frontend (Netlify) and backend API (Render)
+    # run on different domains in production, browsers require SameSite=None and
+    # Secure=True for HTTP-only session cookies to be sent on cross-origin requests.
+    samesite = (
+        "none"
+        if is_prod
+        else (settings.cookie_samesite or "lax").lower()
+    )
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
         max_age=settings.session_days * 86400,
         httponly=True,
         secure=is_secure,
-        samesite=settings.cookie_samesite,
+        samesite=samesite,  # type: ignore[arg-type]
         path="/",
     )
 
 
 def clear_session_cookie(response: Response) -> None:
-    is_secure = settings.cookie_secure or settings.app_env.lower() == "production"
+    is_prod = settings.app_env.lower() == "production"
+    is_secure = settings.cookie_secure or is_prod
+    samesite = (
+        "none"
+        if is_prod
+        else (settings.cookie_samesite or "lax").lower()
+    )
     response.delete_cookie(
         COOKIE_NAME,
         path="/",
         httponly=True,
         secure=is_secure,
-        samesite=settings.cookie_samesite,
+        samesite=samesite,  # type: ignore[arg-type]
     )
 
 

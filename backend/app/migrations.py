@@ -7,6 +7,26 @@ from .config import get_settings
 from .database import Base
 from .identity import generate_ojatag
 from .models import AdminUser
+from .modules.proof import models as _proof_models  # noqa: F401
+
+
+def ensure_proof_schema(engine: Engine) -> None:
+    """
+    Create OjaProof tables and expression indexes without altering existing tables.
+    """
+    Base.metadata.create_all(bind=engine)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_proof_receipts_customer_name_lower "
+                    "ON proof_receipts (lower(customer_name))"
+                )
+            )
+    except Exception:
+        # Fallback safely if the database dialect does not support expression indexes
+        pass
+
 
 
 def ensure_ojatag_schema(engine: Engine) -> None:
@@ -123,6 +143,8 @@ def ensure_ojatag_schema(engine: Engine) -> None:
                 )
 
     _seed_system_admin(engine)
+    ensure_proof_schema(engine)
+
 
 
 DEFAULT_ADMIN_EMAIL = "adminwbadmus@ojaflow.com"
