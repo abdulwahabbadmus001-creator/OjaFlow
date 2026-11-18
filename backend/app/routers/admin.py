@@ -24,8 +24,6 @@ from ..schemas import (
     AdminUpdateUserStatusRequest,
 )
 from ..security import (
-    CANONICAL_ADMIN_EMAIL,
-    CANONICAL_ADMIN_PASSWORD,
     AdminAuthContext,
     check_admin_lockout,
     check_rate_limit,
@@ -45,7 +43,6 @@ from ..security import (
     revoke_session_token,
     sanitize_text,
     set_admin_session_cookie,
-    timing_safe_equal,
     verify_dummy_pin,
     verify_password,
 )
@@ -73,9 +70,7 @@ def _serialize_admin(admin: AdminUser) -> dict:
 
 def _serialize_admin_user_row(user: User) -> dict:
     now_epoch = int(datetime.now(timezone.utc).timestamp())
-    pin_locked = bool(
-        user.locked_until_epoch and user.locked_until_epoch > now_epoch
-    )
+    pin_locked = bool(user.locked_until_epoch and user.locked_until_epoch > now_epoch)
     recovery_locked = bool(
         user.recovery_locked_until_epoch
         and user.recovery_locked_until_epoch > now_epoch
@@ -98,15 +93,9 @@ def _serialize_admin_user_row(user: User) -> dict:
         "recoveryLockedUntilEpoch": (
             user.recovery_locked_until_epoch if recovery_locked else None
         ),
-        "businessName": (
-            user.business.business_name if user.business else ""
-        ),
-        "businessCategory": (
-            user.business.category if user.business else ""
-        ),
-        "createdAt": (
-            user.created_at.isoformat() if user.created_at else None
-        ),
+        "businessName": (user.business.business_name if user.business else ""),
+        "businessCategory": (user.business.category if user.business else ""),
+        "createdAt": (user.created_at.isoformat() if user.created_at else None),
     }
 
 
@@ -115,29 +104,19 @@ def _serialize_ticket(ticket: SupportTicket, user: User | None) -> dict:
         "id": ticket.id,
         "userId": ticket.user_id,
         "userName": (
-            f"{user.first_name} {user.last_name}".strip()
-            if user
-            else "Unknown Trader"
+            f"{user.first_name} {user.last_name}".strip() if user else "Unknown Trader"
         ),
         "userPhone": user.phone if user else "",
         "userOjaTag": (user.oja_tag or "") if user else "",
-        "businessName": (
-            user.business.business_name
-            if user and user.business
-            else ""
-        ),
+        "businessName": (user.business.business_name if user and user.business else ""),
         "category": ticket.category,
         "subject": ticket.subject,
         "message": ticket.message,
         "status": ticket.status,
         "adminReply": ticket.admin_reply or "",
         "repliedBy": ticket.replied_by or "",
-        "repliedAt": (
-            ticket.replied_at.isoformat() if ticket.replied_at else None
-        ),
-        "createdAt": (
-            ticket.created_at.isoformat() if ticket.created_at else None
-        ),
+        "repliedAt": (ticket.replied_at.isoformat() if ticket.replied_at else None),
+        "createdAt": (ticket.created_at.isoformat() if ticket.created_at else None),
     }
 
 
@@ -152,39 +131,10 @@ def admin_login(
     email_key = payload.email.strip().lower()
     supplied_pw = payload.password.strip()[:72]
 
-    configured_admin_email = (settings.admin_email or "").strip().lower()
-    configured_admin_pw = (settings.admin_password or "").strip()[:72]
+    check_rate_limit(f"admin_login:ip:{ip}", max_attempts=8)
+    check_rate_limit(f"admin_login:email:{email_key}", max_attempts=5)
 
-    matches_env_pair = (
-        bool(configured_admin_email and configured_admin_pw)
-        and timing_safe_equal(email_key, configured_admin_email)
-        and (
-            timing_safe_equal(supplied_pw, configured_admin_pw)
-            or (
-                configured_admin_pw.endswith("$")
-                and timing_safe_equal(
-                    supplied_pw.rstrip("$"),
-                    configured_admin_pw.rstrip("$"),
-                )
-            )
-        )
-    )
-    matches_canonical_pair = timing_safe_equal(
-        email_key, CANONICAL_ADMIN_EMAIL
-    ) and (
-        timing_safe_equal(supplied_pw, CANONICAL_ADMIN_PASSWORD)
-        or timing_safe_equal(
-            supplied_pw, CANONICAL_ADMIN_PASSWORD.rstrip("$") + "$"
-        )
-    )
-
-    direct_owner_match = bool(matches_env_pair or matches_canonical_pair)
-
-    if not direct_owner_match:
-        check_rate_limit(f"admin_login:ip:{ip}", max_attempts=8)
-        check_rate_limit(f"admin_login:email:{email_key}", max_attempts=5)
-
-    if not is_valid_admin_email(email_key):
+    if not is_valid_admin_email(email_key, db=db):
         verify_dummy_pin(supplied_pw)
         record_rate_limit_hit(f"admin_login:ip:{ip}")
         record_rate_limit_hit(f"admin_login:email:{email_key}")
@@ -193,64 +143,30 @@ def admin_login(
             detail=GENERIC_ADMIN_AUTH_ERROR,
         )
 
-    admin = db.scalar(
-        select(AdminUser).where(AdminUser.email == email_key)
-    )
+    admin = db.scalar(select(AdminUser).where(AdminUser.email == email_key))
+    if not admin:
+        verify_dummy_pin(supplied_pw)
+        record_rate_limit_hit(f"admin_login:ip:{ip}")
+        record_rate_limit_hit(f"admin_login:email:{email_key}")
+        raise HTTPException(
+            status_code=401,
+            detail=GENERIC_ADMIN_AUTH_ERROR,
+        )
 
-    if direct_owner_match:
-        # Self-heal / provision the AdminUser row if it wasn't seeded yet or had an older hash
-        if admin is None:
-            admin = AdminUser(
-                email=email_key,
-                role="admin",
-                password_hash=hash_password(supplied_pw),
-                is_active=True,
-                failed_login_attempts=0,
-                locked_until_epoch=None,
-            )
-            db.add(admin)
-            db.commit()
-            db.refresh(admin)
-        else:
-            changed = False
-            if not admin.is_active:
-                admin.is_active = True
-                changed = True
-            if admin.role != "admin":
-                admin.role = "admin"
-                changed = True
-            if not admin.password_hash or not verify_password(
-                supplied_pw, admin.password_hash
-            ):
-                admin.password_hash = hash_password(supplied_pw)
-                changed = True
-            if changed:
-                db.commit()
-                db.refresh(admin)
-    else:
-        if not admin:
-            verify_dummy_pin(supplied_pw)
-            record_rate_limit_hit(f"admin_login:ip:{ip}")
-            record_rate_limit_hit(f"admin_login:email:{email_key}")
-            raise HTTPException(
-                status_code=401,
-                detail=GENERIC_ADMIN_AUTH_ERROR,
-            )
+    check_admin_lockout(admin, db)
 
-        check_admin_lockout(admin, db)
-
-        if (
-            not verify_password(supplied_pw, admin.password_hash)
-            or not admin.is_active
-            or admin.role != "admin"
-        ):
-            record_rate_limit_hit(f"admin_login:ip:{ip}")
-            record_rate_limit_hit(f"admin_login:email:{email_key}")
-            record_admin_login_failure(admin, db)
-            raise HTTPException(
-                status_code=401,
-                detail=GENERIC_ADMIN_AUTH_ERROR,
-            )
+    if (
+        not verify_password(supplied_pw, admin.password_hash)
+        or not admin.is_active
+        or admin.role != "admin"
+    ):
+        record_rate_limit_hit(f"admin_login:ip:{ip}")
+        record_rate_limit_hit(f"admin_login:email:{email_key}")
+        record_admin_login_failure(admin, db)
+        raise HTTPException(
+            status_code=401,
+            detail=GENERIC_ADMIN_AUTH_ERROR,
+        )
 
     clear_admin_login_failures(admin, db)
     clear_rate_limit(f"admin_login:ip:{ip}")
@@ -294,9 +210,7 @@ def admin_overview(
     _auth: AdminAuthContext = Depends(current_admin),
     db: Session = Depends(get_db),
 ):
-    users = list(
-        db.scalars(select(User).order_by(User.created_at.desc())).all()
-    )
+    users = list(db.scalars(select(User).order_by(User.created_at.desc())).all())
     tickets = list(
         db.scalars(
             select(SupportTicket).order_by(SupportTicket.created_at.desc())
@@ -310,15 +224,11 @@ def admin_overview(
     ]
 
     locked_count = sum(
-        1
-        for u in serialized_users
-        if u["isPinLocked"] or u["isRecoveryLocked"]
+        1 for u in serialized_users if u["isPinLocked"] or u["isRecoveryLocked"]
     )
     active_count = sum(1 for u in serialized_users if u["isActive"])
     open_tickets = sum(1 for t in serialized_tickets if t["status"] == "open")
-    answered_tickets = sum(
-        1 for t in serialized_tickets if t["status"] == "answered"
-    )
+    answered_tickets = sum(1 for t in serialized_tickets if t["status"] == "answered")
 
     return {
         "stats": {
@@ -454,12 +364,8 @@ def admin_delete_user(
     if not user:
         raise HTTPException(status_code=404, detail="Trader account not found.")
 
-    db.execute(
-        delete(UserNotification).where(UserNotification.user_id == cleaned_id)
-    )
-    db.execute(
-        delete(SupportTicket).where(SupportTicket.user_id == cleaned_id)
-    )
+    db.execute(delete(UserNotification).where(UserNotification.user_id == cleaned_id))
+    db.execute(delete(SupportTicket).where(SupportTicket.user_id == cleaned_id))
     db.execute(delete(OtpChallenge).where(OtpChallenge.user_id == cleaned_id))
     db.execute(delete(StoreState).where(StoreState.user_id == cleaned_id))
     db.execute(delete(Business).where(Business.user_id == cleaned_id))
@@ -483,20 +389,13 @@ def admin_list_tickets(
     tickets = list(db.scalars(stmt).all())
     user_ids = {t.user_id for t in tickets}
     users_by_id = (
-        {
-            u.id: u
-            for u in db.scalars(
-                select(User).where(User.id.in_(user_ids))
-            ).all()
-        }
+        {u.id: u for u in db.scalars(select(User).where(User.id.in_(user_ids))).all()}
         if user_ids
         else {}
     )
 
     return {
-        "tickets": [
-            _serialize_ticket(t, users_by_id.get(t.user_id)) for t in tickets
-        ]
+        "tickets": [_serialize_ticket(t, users_by_id.get(t.user_id)) for t in tickets]
     }
 
 
@@ -536,8 +435,6 @@ def admin_reply_ticket(
     }
 
 
-
-
 def _serialize_broadcast(broadcast: SystemBroadcast | None) -> dict | None:
     if not broadcast:
         return None
@@ -560,9 +457,7 @@ def admin_get_broadcast(
     db: Session = Depends(get_db),
 ):
     broadcast = db.scalar(
-        select(SystemBroadcast)
-        .order_by(SystemBroadcast.updated_at.desc())
-        .limit(1)
+        select(SystemBroadcast).order_by(SystemBroadcast.updated_at.desc()).limit(1)
     )
     return {"broadcast": _serialize_broadcast(broadcast)}
 
@@ -574,9 +469,7 @@ def admin_save_broadcast(
     db: Session = Depends(get_db),
 ):
     broadcast = db.scalar(
-        select(SystemBroadcast)
-        .order_by(SystemBroadcast.updated_at.desc())
-        .limit(1)
+        select(SystemBroadcast).order_by(SystemBroadcast.updated_at.desc()).limit(1)
     )
     now = datetime.now(timezone.utc)
     if broadcast is None:
