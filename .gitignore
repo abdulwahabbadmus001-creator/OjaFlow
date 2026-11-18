@@ -25,4 +25,8 @@ backend/*.sqlite3
 
 # Local OjaFlow upgrade scripts
 OjaFlow-*-Upgrade.ps1
-nojaflow.dbn*.dbn*.sqliten.env
+
+ojaflow.db
+.db
+.sqlite
+.env
