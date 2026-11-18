@@ -338,7 +338,7 @@ export default function AdminPage({
                 name="email"
                 type="email"
                 autoComplete="username"
-                placeholder="adminwbadmus@ojaflow.com"
+                placeholder={import.meta.env.VITE_ADMIN_EMAIL_PLACEHOLDER || ''}
                 required
               />
             </label>

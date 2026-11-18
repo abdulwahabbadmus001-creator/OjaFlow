@@ -1,3 +1,5 @@
+import logging
+
 import bcrypt
 from sqlalchemy import inspect, select, text
 from sqlalchemy.engine import Engine
@@ -8,6 +10,9 @@ from .database import Base
 from .identity import generate_ojatag
 from .models import AdminUser
 from .modules.proof import models as _proof_models  # noqa: F401
+
+logger = logging.getLogger(__name__)
+MIN_ADMIN_PASSWORD_LENGTH = 12
 
 
 def ensure_proof_schema(engine: Engine) -> None:
@@ -26,7 +31,6 @@ def ensure_proof_schema(engine: Engine) -> None:
     except Exception:
         # Fallback safely if the database dialect does not support expression indexes
         pass
-
 
 
 def ensure_ojatag_schema(engine: Engine) -> None:
@@ -146,39 +150,49 @@ def ensure_ojatag_schema(engine: Engine) -> None:
     ensure_proof_schema(engine)
 
 
-
-DEFAULT_ADMIN_EMAIL = "adminwbadmus@ojaflow.com"
-DEFAULT_ADMIN_PASSWORD = "OjaFlowAdmin007$$"
-
-
 def _seed_system_admin(engine: Engine) -> None:
     """
     Ensure the dedicated system administrator account configured via
     ADMIN_EMAIL and ADMIN_PASSWORD exists in `admin_users` with role='admin'.
+    When either value is missing or ADMIN_PASSWORD is shorter than 12 characters,
+    deactivate all AdminUser rows, log one warning without secret values, and create nothing.
     """
     settings = get_settings()
-    admin_email = (settings.admin_email or DEFAULT_ADMIN_EMAIL).strip().lower()
-    admin_password = (settings.admin_password or DEFAULT_ADMIN_PASSWORD).strip()
-    if not admin_email or not admin_password:
-        return
+    admin_email = (settings.admin_email or "").strip().lower()
+    admin_password = (settings.admin_password or "").strip()
 
     with Session(bind=engine) as session:
+        if not admin_email or len(admin_password) < MIN_ADMIN_PASSWORD_LENGTH:
+            all_admins = session.scalars(select(AdminUser)).all()
+            changed = False
+            for row in all_admins:
+                if row.is_active:
+                    row.is_active = False
+                    changed = True
+            if changed:
+                session.commit()
+            logger.warning(
+                "System administrator account is disabled because ADMIN_EMAIL is missing "
+                "or ADMIN_PASSWORD is shorter than 12 characters."
+            )
+            return
+
         # Deactivate any stale admin rows that do not match the configured ADMIN_EMAIL
         stale_admins = session.scalars(
             select(AdminUser).where(AdminUser.email != admin_email)
         ).all()
+        changed = False
         for stale in stale_admins:
             if stale.is_active:
                 stale.is_active = False
+                changed = True
 
         existing_admin = session.scalar(
             select(AdminUser).where(AdminUser.email == admin_email)
         )
         raw_pw = admin_password.encode("utf-8")[:72]
         if existing_admin is None:
-            pw_hash = bcrypt.hashpw(
-                raw_pw, bcrypt.gensalt(rounds=12)
-            ).decode("utf-8")
+            pw_hash = bcrypt.hashpw(raw_pw, bcrypt.gensalt(rounds=12)).decode("utf-8")
             session.add(
                 AdminUser(
                     email=admin_email,
@@ -191,7 +205,6 @@ def _seed_system_admin(engine: Engine) -> None:
             )
             session.commit()
         else:
-            changed = bool(stale_admins)
             if not existing_admin.is_active:
                 existing_admin.is_active = True
                 changed = True

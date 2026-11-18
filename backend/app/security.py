@@ -15,6 +15,7 @@ import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, Request, Response, status
 from pwdlib import PasswordHash
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .config import get_settings
@@ -384,7 +385,8 @@ def clear_recovery_failures(user: User, db: Session) -> None:
 
 def _jwt_key() -> bytes:
     """Derive a 256-bit (32-byte) key for HS256 JWT signing (RFC 7518 Section 3.2)."""
-    raw = settings.session_secret.encode("utf-8")
+    current_settings = get_settings()
+    raw = (current_settings.session_secret or "").encode("utf-8")
     return raw if len(raw) >= 32 else hashlib.sha256(raw).digest()
 
 
@@ -527,20 +529,24 @@ def decode_session(token: str) -> dict:
         ) from exc
 
 
-CANONICAL_ADMIN_EMAIL = "adminwbadmus@ojaflow.com"
-CANONICAL_ADMIN_PASSWORD = "OjaFlowAdmin007$$"
-
-
-def is_valid_admin_email(email: str) -> bool:
+def is_valid_admin_email(email: str, db: Session | None = None) -> bool:
     candidate = (email or "").strip().lower()
     if not candidate:
         return False
-    configured = (settings.admin_email or "").strip().lower()
-    match_configured = bool(configured) and timing_safe_equal(
-        candidate, configured
-    )
-    match_canonical = timing_safe_equal(candidate, CANONICAL_ADMIN_EMAIL)
-    return bool(match_configured or match_canonical)
+    configured = (get_settings().admin_email or "").strip().lower()
+    if configured and timing_safe_equal(candidate, configured):
+        return True
+    if db is not None:
+        active_admin = db.scalar(
+            select(AdminUser).where(
+                AdminUser.email == candidate,
+                AdminUser.is_active.is_(True),
+                AdminUser.role == "admin",
+            )
+        )
+        if active_admin is not None:
+            return True
+    return False
 
 
 def _extract_bearer_token(
@@ -670,7 +676,7 @@ def clear_admin_session_cookie(response: Response) -> None:
     )
 
 
-def decode_admin_session(token: str) -> dict:
+def decode_admin_session(token: str, db: Session | None = None) -> dict:
     try:
         payload = jwt.decode(token, _jwt_key(), algorithms=["HS256"])
         if payload.get("typ") != "admin_session":
@@ -680,7 +686,7 @@ def decode_admin_session(token: str) -> dict:
         if payload.get("role") != "admin":
             raise ValueError("insufficient role")
         token_email = str(payload.get("email") or "").strip().lower()
-        if not is_valid_admin_email(token_email):
+        if not is_valid_admin_email(token_email, db=db):
             raise ValueError("admin email mismatch")
         if _is_token_revoked(payload.get("jti")):
             raise ValueError("admin session token revoked")
@@ -711,13 +717,13 @@ def current_admin(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Admin authentication required.",
         )
-    payload = decode_admin_session(token)
+    payload = decode_admin_session(token, db=db)
     admin = db.get(AdminUser, payload.get("sub"))
     if (
         not admin
         or not admin.is_active
         or admin.role != "admin"
-        or not is_valid_admin_email(admin.email)
+        or not is_valid_admin_email(admin.email, db=db)
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

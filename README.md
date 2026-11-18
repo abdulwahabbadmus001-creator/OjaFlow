@@ -67,8 +67,17 @@ uvicorn app.main:app --reload
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
+| `SESSION_SECRET` | *(empty)* | Required in production (`APP_ENV=production`) with at least **32 characters**. The backend refuses to start in production if missing or shorter than 32 characters. |
+| `ADMIN_EMAIL` | *(empty)* | Dedicated system administrator email address for `/api/admin/*`. |
+| `ADMIN_PASSWORD` | *(empty)* | System administrator password (**minimum 12 characters**). |
 | `PROOF_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated list of allowed CORS origins for the OjaProof frontend (merged with `FRONTEND_ORIGINS` and `http://localhost:5173`). |
 | `PROOF_PUBLIC_BASE_URL` | `http://localhost:5173` | Public base URL of the deployed OjaProof frontend used for receipt verification links and QR codes. |
+
+### System Administrator Setup (`/api/admin`)
+
+- **Required Environment Variables:** Set both `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your backend environment.
+- **12-Character Minimum:** `ADMIN_PASSWORD` must be at least **12 characters** long (and within Bcrypt's 72-byte UTF-8 limit). On startup, `_seed_system_admin` hashes `ADMIN_PASSWORD` with 12-round Bcrypt and keeps the stored `admin_users` hash synchronized with the environment variable.
+- **Disabled by Default When Missing:** There is no built-in or default administrator account. When `ADMIN_EMAIL` or `ADMIN_PASSWORD` is missing (or `ADMIN_PASSWORD` is shorter than 12 characters), the system administrator account stays **disabled**, any existing `AdminUser` rows are deactivated, and all `/api/admin/*` endpoints remain closed.
 
 ### Endpoints
 

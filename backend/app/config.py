@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,15 +14,15 @@ class Settings(BaseSettings):
     proof_allowed_origins: str = "http://localhost:5173"
     proof_public_base_url: str = "http://localhost:5173"
 
-    session_secret: str = "ojaflow-development-only-secret-key-change-before-production-32b"
+    session_secret: str = ""
     session_days: int = 14
 
     cookie_secure: bool = False
     cookie_samesite: str = "lax"
 
     # Dedicated System Admin credentials (configured via ADMIN_EMAIL and ADMIN_PASSWORD env vars)
-    admin_email: str = "adminwbadmus@ojaflow.com"
-    admin_password: str = "OjaFlowAdmin007$$"
+    admin_email: str = ""
+    admin_password: str = ""
 
     # OTP providers:
     # console   -> prints OTP in backend terminal
@@ -50,6 +51,15 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def _enforce_production_session_secret(self) -> "Settings":
+        if (self.app_env or "").strip().lower() == "production":
+            if len((self.session_secret or "").strip()) < 32:
+                raise ValueError(
+                    "SESSION_SECRET must be set and at least 32 characters in production."
+                )
+        return self
 
     @property
     def origins(self) -> list[str]:
