@@ -142,7 +142,13 @@ export function ProtectedRoute({
 
   useEffect(() => {
     if (!isInitializing && !isAuthenticated) {
-      navigateToLoginHash();
+      const publicAuthRoute = window.location.hash
+        .replace(/^#\/?/, '')
+        .trim()
+        .toLowerCase();
+      if (!['login', 'register', 'forgot', 'auth'].includes(publicAuthRoute)) {
+        navigateToLoginHash();
+      }
     }
   }, [isAuthenticated, isInitializing]);
 

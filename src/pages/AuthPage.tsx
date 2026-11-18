@@ -60,7 +60,9 @@ export default function AuthPage({
   ) => void;
   cookieConsentAccepted: boolean;
 }) {
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [mode, setMode] = useState<AuthMode>(() =>
+    window.location.hash === '#/register' ? 'register' : 'login'
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [showPin, setShowPin] = useState(false);
@@ -88,6 +90,18 @@ export default function AuthPage({
     key: string,
     vars?: Record<string, string | number>
   ) => t(preferredLanguage, key, vars);
+
+  useEffect(() => {
+    const syncAuthMode = () => {
+      if (window.location.hash === '#/register') {
+        setMode('register');
+      } else if (window.location.hash === '#/login') {
+        setMode(current => current === 'forgot' ? current : 'login');
+      }
+    };
+    window.addEventListener('hashchange', syncAuthMode);
+    return () => window.removeEventListener('hashchange', syncAuthMode);
+  }, []);
 
   function resetRecoveryState() {
     setRecoveryStep('identify');
@@ -353,6 +367,9 @@ export default function AuthPage({
           onClick={() => {
             setMode('login');
             setError('');
+            if (window.location.hash !== '#/login') {
+              window.location.hash = '#/login';
+            }
           }}
         >
           {tr('Log in')}
@@ -364,6 +381,9 @@ export default function AuthPage({
           onClick={() => {
             setMode('register');
             setError('');
+            if (window.location.hash !== '#/register') {
+              window.location.hash = '#/register';
+            }
           }}
         >
           {tr('Create account')}
@@ -914,9 +934,9 @@ function AuthLayout({
       />
 
       <header className="auth-premium-top">
-        <BrandLogo
-          subtitle={tr('Business command centre')}
-        />
+        <a className="auth-home-brand" href="/" aria-label="OjaFlow home">
+          <BrandLogo subtitle={tr('Business command centre')} />
+        </a>
       </header>
 
       <div className="auth-premium-content">

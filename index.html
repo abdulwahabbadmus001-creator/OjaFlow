@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
   <meta charset="UTF-8" />
@@ -9,45 +9,85 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="OjaFlow" />
-  <meta name="description" content="OjaFlow — sales, stock, expenses and debt management for everyday traders." />
+  <meta name="description" content="Keep products, sales, expenses and customer records organised with OjaFlow, a business management app for Nigerian traders." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="OjaFlow" />
+  <meta property="og:title" content="OjaFlow — Business records, all in one place" />
+  <meta property="og:description" content="Keep products, sales, expenses and customer records organised with OjaFlow, a business management app for Nigerian traders." />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="OjaFlow — Business records, all in one place" />
+  <meta name="twitter:description" content="A simpler way for Nigerian traders to keep everyday business records together." />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/ojaflow-of.svg?v=2" type="image/svg+xml" />
   <link rel="apple-touch-icon" sizes="180x180" href="/ojaflow-of.svg?v=2" />
-  <title>OjaFlow</title>
+  <title>OjaFlow — Business records, all in one place</title>
   <script>
     (function () {
       try {
-        var pref = localStorage.getItem('ojaflow:theme') || 'system';
+        var THEME_KEY = 'ojaflow:theme';
+        var USER_SET_KEY = 'ojaflow:theme_user_set';
+        var MIGRATED_KEY = 'ojaflow:theme_v2_migrated';
+        var raw = localStorage.getItem(THEME_KEY);
+        var userSet = localStorage.getItem(USER_SET_KEY) === '1';
+        var migrated = localStorage.getItem(MIGRATED_KEY) === '1';
+
+        if (!migrated) {
+          localStorage.setItem(MIGRATED_KEY, '1');
+          if (raw === 'system' && !userSet) {
+            localStorage.setItem(THEME_KEY, 'light');
+            raw = 'light';
+          } else if (raw === 'light' || raw === 'dark') {
+            localStorage.setItem(USER_SET_KEY, '1');
+          }
+        }
+
+        var pref =
+          raw === 'light' || raw === 'dark' || (raw === 'system' && userSet)
+            ? raw
+            : 'light';
+
+        if (raw && raw !== pref) {
+          localStorage.setItem(THEME_KEY, pref);
+        }
+
         var resolved =
           pref === 'system'
-            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
               ? 'dark'
               : 'light'
             : pref;
+
         document.documentElement.dataset.theme = resolved;
+        document.documentElement.dataset.themePreference = pref;
+        document.documentElement.style.colorScheme = resolved;
       } catch (e) {
         document.documentElement.dataset.theme = 'light';
+        document.documentElement.dataset.themePreference = 'light';
+        document.documentElement.style.colorScheme = 'light';
       }
     })();
   </script>
   <style>
     :root {
-      --shell-bg: #f5f1e7;
-      --shell-surface: #fffdf8;
+      color-scheme: light;
+      --shell-bg: #f8f6f0;
+      --shell-surface: #ffffff;
       --shell-ink: #18211d;
-      --shell-muted: #777d78;
+      --shell-muted: #5c6660;
       --shell-border: rgba(170, 124, 17, 0.18);
       --shell-shimmer: rgba(15, 118, 87, 0.08);
-      --shell-gold: #d4af37;
+      --shell-gold: #b8860b;
     }
 
     :root[data-theme="dark"] {
+      color-scheme: dark;
       --shell-bg: #030806;
       --shell-surface: #111916;
       --shell-ink: #fffdf7;
       --shell-muted: #96a099;
       --shell-border: rgba(212, 175, 55, 0.16);
       --shell-shimmer: rgba(212, 175, 55, 0.09);
+      --shell-gold: #d4af37;
     }
 
     html,

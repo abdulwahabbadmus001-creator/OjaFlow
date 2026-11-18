@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   AppSection,
   BusinessProfile,
@@ -25,8 +25,14 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { api, type RemoteStoreSnapshot } from './lib/api';
 import { useStore } from './lib/useStore';
 import { LanguageProvider } from './lib/i18n';
+import {
+  applyResolvedThemeToDocument,
+  getInitialThemePreference,
+  saveThemePreference,
+  THEME_KEY
+} from './lib/theme';
 
-const THEME_KEY = 'ojaflow:theme';
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 // Private, unguessable admin route — never linked publicly in the UI.
 // Access only by typing /#secret-admin-portal directly in the browser address bar
@@ -38,6 +44,11 @@ const SECRET_ADMIN_SLUG = (
   .trim()
   .replace(/^#\/?|^\/+/, '');
 
+function isPublicLandingRoute(): boolean {
+  const hash = window.location.hash;
+  return !hash || !hash.startsWith('#/');
+}
+
 function isSecretAdminRoute(): boolean {
   const hashSlug = window.location.hash.replace(/^#\/?/, '').trim();
   const pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').trim();
@@ -45,13 +56,6 @@ function isSecretAdminRoute(): boolean {
     Boolean(SECRET_ADMIN_SLUG) &&
     (hashSlug === SECRET_ADMIN_SLUG || pathSlug === SECRET_ADMIN_SLUG)
   );
-}
-
-function resolveTheme(preference: ThemePreference) {
-  if (preference !== 'system') return preference;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light';
 }
 
 function AppContent() {
@@ -69,15 +73,21 @@ function AppContent() {
   const [section, setSectionState] = useState<AppSection>(() =>
     resolveInitialSection()
   );
+  const [isLandingPage, setIsLandingPage] = useState(isPublicLandingRoute);
   const [quick, setQuick] = useState(false);
   const [chat, setChat] = useState(false);
-  const [theme, setTheme] = useState<ThemePreference>(
-    () => (localStorage.getItem(THEME_KEY) as ThemePreference) || 'system'
+  const [theme, setThemeState] = useState<ThemePreference>(() =>
+    getInitialThemePreference()
   );
   const [cookieConsentAccepted, setCookieConsentAccepted] = useState(
     () => localStorage.getItem(COOKIE_CONSENT_KEY) === 'true'
   );
   const [adminView, setAdminView] = useState(() => isSecretAdminRoute());
+
+  const setTheme = useCallback((nextTheme: ThemePreference) => {
+    saveThemePreference(nextTheme);
+    setThemeState(nextTheme);
+  }, []);
 
   const setSection = useCallback((nextSection: AppSection) => {
     setSectionState(nextSection);
@@ -88,6 +98,7 @@ function AppContent() {
     const syncRoute = () => {
       const isAdmin = isSecretAdminRoute();
       setAdminView(isAdmin);
+      setIsLandingPage(isPublicLandingRoute());
       if (!isAdmin && isAuthenticated) {
         const nextSection = resolveInitialSection();
         setSectionState(prev => (window.location.hash ? nextSection : prev));
@@ -109,14 +120,30 @@ function AppContent() {
 
   useEffect(() => {
     const apply = () => {
-      document.documentElement.dataset.theme = resolveTheme(theme);
-      localStorage.setItem(THEME_KEY, theme);
+      applyResolvedThemeToDocument(theme);
     };
     apply();
+
+    if (theme !== 'system') {
+      return undefined;
+    }
+
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     media.addEventListener('change', apply);
     return () => media.removeEventListener('change', apply);
   }, [theme]);
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === THEME_KEY || event.key === null) {
+        const next = getInitialThemePreference();
+        setThemeState(next);
+        applyResolvedThemeToDocument(next);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   function handleAuthenticated(
     profile: UserProfile,
@@ -193,6 +220,24 @@ function AppContent() {
       )}
     </PublicOnlyRoute>
   );
+
+  if (!isAuthenticated && isLandingPage) {
+    return (
+      <>
+        <Suspense fallback={<AppShellFallback />}>
+          <LandingPage onOpenLegal={setLegalPage} />
+        </Suspense>
+        {legalPage && (
+          <Suspense fallback={null}>
+            <LegalPagesModal
+              type={legalPage}
+              onClose={() => setLegalPage(null)}
+            />
+          </Suspense>
+        )}
+      </>
+    );
+  }
 
   return (
     <ProtectedRoute fallback={loginView}>

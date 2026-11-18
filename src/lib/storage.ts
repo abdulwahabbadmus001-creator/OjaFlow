@@ -518,6 +518,8 @@ export function clearUserCache(
 export function clearAllUserCaches() {
   const preserve = new Set([
     'ojaflow:theme',
+    'ojaflow:theme_user_set',
+    'ojaflow:theme_v2_migrated',
     'ojaflow:cookie-consent',
     'ojaflow:essential-storage-consent'
   ]);

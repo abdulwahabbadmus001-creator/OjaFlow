@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ojaflow-pwa-v7';
+const CACHE_NAME = 'ojaflow-pwa-v8';
 const APP_SHELL = [
   '/',
   '/index.html',

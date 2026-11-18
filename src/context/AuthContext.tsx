@@ -54,9 +54,16 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function navigateToLoginHash(): void {
+export function navigateToLoginHash(force = false): void {
   if (typeof window === 'undefined') return;
-  if (window.location.hash !== '#/login') {
+  const hash = window.location.hash;
+  if (!force) {
+    if (!hash || !hash.startsWith('#/')) return;
+    if (hash === '#/login' || hash === '#/register' || hash === '#/forgot') {
+      return;
+    }
+  }
+  if (hash !== '#/login') {
     window.history.replaceState(null, '', '#/login');
     window.dispatchEvent(new HashChangeEvent('hashchange'));
   }
@@ -298,7 +305,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(null);
       setBusiness(null);
       setToken(null);
-      navigateToLoginHash();
+      navigateToLoginHash(true);
     },
     [session?.uid]
   );
@@ -311,7 +318,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setBusiness(null);
     setToken(null);
-    navigateToLoginHash();
+    navigateToLoginHash(true);
   }, [session?.uid]);
 
   const value = useMemo<AuthContextValue>(

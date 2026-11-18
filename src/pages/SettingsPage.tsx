@@ -176,7 +176,26 @@ export default function SettingsPage({
         </SettingsGroup>
 
         <SettingsGroup title={tr('Preferences')}>
-          <Row icon={<Moon />} title={tr('Appearance')} sub={tr('Light, dark or system theme')} onClick={() => setScreen('appearance')} />
+          <Row
+            icon={
+              theme === 'dark' ? (
+                <Moon />
+              ) : theme === 'system' ? (
+                <Monitor />
+              ) : (
+                <Sun />
+              )
+            }
+            title={tr('Appearance')}
+            sub={`${
+              theme === 'dark'
+                ? tr('Dark')
+                : theme === 'system'
+                  ? tr('System')
+                  : tr('Light')
+            } • ${tr('Light, dark or system theme')}`}
+            onClick={() => setScreen('appearance')}
+          />
           <Row icon={<Languages />} title={tr('Language')} sub={tr('Choose the language OjaFlow should use across the app.')} onClick={() => setScreen('language')} />
           <Row icon={<Bell />} title={tr('Notifications')} sub={tr('Choose the alerts you want')} onClick={() => setScreen('notifications')} />
         </SettingsGroup>
@@ -763,14 +782,27 @@ function AppearanceScreen({ theme, setTheme, onBack }: {
 
   return (
     <SimpleScreen title={tr('Appearance')} subtitle={tr('Choose how OjaFlow looks on this device.')} onBack={onBack}>
-      <div className="choice-list visual-choices">
-        {options.map(option => (
-          <button key={option.id} className={theme === option.id ? 'choice active' : 'choice'} onClick={() => setTheme(option.id)}>
-            <span className="choice-icon">{option.icon}</span>
-            <span className="grow"><b>{option.title}</b><small>{option.text}</small></span>
-            {theme === option.id && <Check size={18} />}
-          </button>
-        ))}
+      <div className="choice-list visual-choices" role="radiogroup" aria-label={tr('Appearance')}>
+        {options.map(option => {
+          const isSelected = theme === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              className={isSelected ? 'choice active' : 'choice'}
+              onClick={() => setTheme(option.id)}
+            >
+              <span className="choice-icon">{option.icon}</span>
+              <span className="grow">
+                <b>{option.title}</b>
+                <small>{option.text}</small>
+              </span>
+              {isSelected && <Check size={18} aria-hidden="true" />}
+            </button>
+          );
+        })}
       </div>
     </SimpleScreen>
   );
